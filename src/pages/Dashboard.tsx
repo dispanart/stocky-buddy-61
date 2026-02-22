@@ -194,11 +194,12 @@ const Dashboard = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{tx.itemName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {tx.type === 'in' ? '+' : '-'}{tx.quantity} {tx.unit}
+                            {tx.type === 'in' ? '+' : '-'}{tx.quantity} {tx.unit} • oleh {tx.user}
                           </p>
                         </div>
                         <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                          {new Date(tx.timestamp).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
+                          {new Date(tx.timestamp).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}{' '}
+                          {new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     ))
