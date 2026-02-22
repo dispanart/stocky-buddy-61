@@ -8,13 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, ShieldAlert } from "lucide-react";
 import { getItems, addItem, updateItem, deleteItem } from "@/lib/inventory-store";
 import { CATEGORIES, BASE_UNITS, UNIT_PRESETS, getStockStatus, formatStock, Item } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const MasterData = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [items, setItems] = useState(getItems());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -72,12 +75,13 @@ const MasterData = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Master Data</h1>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
-                <Plus className="mr-2 h-4 w-4" /> Tambah Barang
-              </Button>
-            </DialogTrigger>
+          {isAdmin ? (
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Plus className="mr-2 h-4 w-4" /> Tambah Barang
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>{editingItem ? "Edit Barang" : "Tambah Barang Baru"}</DialogTitle>
@@ -157,6 +161,11 @@ const MasterData = () => {
               </div>
             </DialogContent>
           </Dialog>
+          ) : (
+            <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+              <ShieldAlert className="h-3.5 w-3.5" /> Hanya Admin yang bisa mengelola
+            </Badge>
+          )}
         </div>
 
         {/* Items Table */}
@@ -201,12 +210,16 @@ const MasterData = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}>
-                            <Trash2 className="h-4 w-4 text-low" />
-                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}>
+                                <Trash2 className="h-4 w-4 text-low" />
+                              </Button>
+                            </>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
