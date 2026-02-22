@@ -36,11 +36,10 @@ export const CATEGORIES = [
 ] as const;
 
 export const UNIT_PRESETS: Record<string, UnitConversion[]> = {
-  'Lembar': [{ unit: 'Rim', rate: 500 }],
-  'Pcs': [{ unit: 'Box', rate: 100 }, { unit: 'Lusin', rate: 12 }],
-  'Meter': [{ unit: 'Roll', rate: 100 }],
-  'Liter': [{ unit: 'Galon', rate: 5 }],
-  'Kg': [],
+  'Lembar': [],
+  'Pcs': [],
+  'Rim': [{ unit: 'Lembar', rate: 500 }],
+  'Box': [{ unit: 'Pcs', rate: 100 }],
 };
 
 export const BASE_UNITS = Object.keys(UNIT_PRESETS);
