@@ -1,4 +1,5 @@
 import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -20,6 +21,7 @@ const navItems = [
 ];
 
 export function AppSidebar() {
+  const { user } = useAuth();
   return (
     <Sidebar className="border-r border-sidebar-border">
       <div className="p-6 pb-2">
@@ -61,11 +63,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-            <span className="text-sm font-semibold text-primary">A</span>
+            <span className="text-sm font-semibold text-primary">{user?.name?.[0] || 'U'}</span>
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">Admin</p>
-            <p className="text-xs text-muted-foreground">Administrator</p>
+            <p className="text-sm font-medium text-foreground">{user?.name || 'User'}</p>
+            <p className="text-xs text-muted-foreground capitalize">{user?.role || 'staff'}</p>
           </div>
         </div>
       </SidebarFooter>

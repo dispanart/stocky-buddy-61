@@ -1,13 +1,14 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, PackagePlus } from "lucide-react";
+import { Bell, Search, PackageMinus, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { getStockStatus } from "@/lib/types";
 import { getItems } from "@/lib/inventory-store";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -16,6 +17,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, onSearch }: AppLayoutProps) {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const items = getItems();
   const lowStockCount = items.filter(i => getStockStatus(i.stock, i.minStock) === 'low').length;
@@ -30,7 +32,7 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-muted-foreground" />
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Halo, Admin! 👋</h2>
+                <h2 className="text-lg font-semibold text-foreground">Halo, {user?.name || 'User'}! 👋</h2>
               </div>
             </div>
 
@@ -59,10 +61,14 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
 
               <Button
                 className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-md"
-                onClick={() => navigate("/stock-in")}
+                onClick={() => navigate("/stock-out")}
               >
-                <PackagePlus className="mr-2 h-4 w-4" />
-                Quick Stock In
+                <PackageMinus className="mr-2 h-4 w-4" />
+                Quick Stock Out
+              </Button>
+
+              <Button variant="ghost" size="icon" onClick={logout} title="Logout">
+                <LogOut className="h-5 w-5 text-muted-foreground" />
               </Button>
             </div>
           </header>

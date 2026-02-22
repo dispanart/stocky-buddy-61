@@ -10,9 +10,11 @@ import { PackageMinus, Calculator, ArrowDownRight, AlertTriangle } from "lucide-
 import { getItems, addTransaction, getSmartUnit, setSmartUnit, getTransactions } from "@/lib/inventory-store";
 import { convertToBase, formatStock } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const StockOut = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const items = getItems();
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
@@ -58,7 +60,7 @@ const StockOut = () => {
       baseQuantity: baseQty,
       note: note || undefined,
       reference: reference || undefined,
-      user: 'Admin',
+      user: user?.name || 'Unknown',
     });
     setSmartUnit(selectedItem.id, unit);
     toast({ title: "Berhasil", description: `${quantity} ${unit} ${selectedItem.name} keluar` });
