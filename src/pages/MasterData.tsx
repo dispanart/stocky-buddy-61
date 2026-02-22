@@ -43,17 +43,32 @@ const MasterData = () => {
   };
 
   const handleSubmit = () => {
-    if (!name || !sku) {
+    const trimmedName = name.trim().slice(0, 100);
+    const trimmedSku = sku.trim().slice(0, 50);
+    
+    if (!trimmedName || !trimmedSku) {
       toast({ title: "Error", description: "Nama dan SKU wajib diisi", variant: "destructive" });
       return;
     }
+    
+    // Check duplicate SKU
+    const existingItems = getItems();
+    const duplicate = existingItems.find(i => i.sku.toLowerCase() === trimmedSku.toLowerCase() && i.id !== editingItem?.id);
+    if (duplicate) {
+      toast({ title: "Error", description: `SKU "${trimmedSku}" sudah digunakan oleh ${duplicate.name}`, variant: "destructive" });
+      return;
+    }
+    
+    const safeStock = Math.max(0, Math.min(stock, 999999999));
+    const safeMinStock = Math.max(0, Math.min(minStock, 999999999));
+    
     const units = UNIT_PRESETS[baseUnit] || [];
     if (editingItem) {
-      updateItem(editingItem.id, { name, sku, category, baseUnit, units, stock, minStock });
-      toast({ title: "Berhasil", description: `${name} berhasil diperbarui` });
+      updateItem(editingItem.id, { name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock });
+      toast({ title: "Berhasil", description: `${trimmedName} berhasil diperbarui` });
     } else {
-      addItem({ name, sku, category, baseUnit, units, stock, minStock });
-      toast({ title: "Berhasil", description: `${name} berhasil ditambahkan` });
+      addItem({ name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock });
+      toast({ title: "Berhasil", description: `${trimmedName} berhasil ditambahkan` });
     }
     setItems(getItems());
     setDialogOpen(false);
@@ -91,11 +106,11 @@ const MasterData = () => {
                 <div className="space-y-4">
                   <div>
                     <Label>Nama Barang</Label>
-                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="Kertas HVS A4" />
+                    <Input value={name} onChange={e => setName(e.target.value.slice(0, 100))} placeholder="Kertas HVS A4" maxLength={100} />
                   </div>
                   <div>
                     <Label>SKU</Label>
-                    <Input value={sku} onChange={e => setSku(e.target.value)} placeholder="KRT-001" />
+                    <Input value={sku} onChange={e => setSku(e.target.value.slice(0, 50))} placeholder="KRT-001" maxLength={50} />
                   </div>
                   <div>
                     <Label>Kategori</Label>
@@ -118,11 +133,11 @@ const MasterData = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label>Stok Awal</Label>
-                      <Input type="number" value={stock} onChange={e => setStock(Number(e.target.value))} min={0} />
+                      <Input type="number" value={stock} onChange={e => setStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
                     </div>
                     <div>
                       <Label>Batas Minimum</Label>
-                      <Input type="number" value={minStock} onChange={e => setMinStock(Number(e.target.value))} min={0} />
+                      <Input type="number" value={minStock} onChange={e => setMinStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
                     </div>
                   </div>
                   <Button onClick={handleSubmit} className="w-full bg-primary text-primary-foreground">
