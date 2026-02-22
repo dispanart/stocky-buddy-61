@@ -1,12 +1,12 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, PackageMinus, LogOut } from "lucide-react";
+import { Bell, Search, PackageMinus, LogOut, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
-import { getStockStatus } from "@/lib/types";
+import { getStockStatus, formatStock } from "@/lib/types";
 import { getItems } from "@/lib/inventory-store";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,7 +20,8 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const items = getItems();
-  const lowStockCount = items.filter(i => getStockStatus(i.stock, i.minStock) === 'low').length;
+  const lowStockItems = items.filter(i => getStockStatus(i.stock, i.minStock) === 'low');
+  const lowStockCount = lowStockItems.length;
 
   return (
     <SidebarProvider>
@@ -50,14 +51,42 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
                 />
               </div>
 
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                {lowStockCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-low text-[10px] font-bold text-low-foreground">
-                    {lowStockCount}
-                  </span>
-                )}
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5 text-muted-foreground" />
+                    {lowStockCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-low text-[10px] font-bold text-low-foreground">
+                        {lowStockCount}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <div className="border-b border-border p-3">
+                    <p className="text-sm font-semibold text-foreground">Notifikasi Stok</p>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {lowStockCount === 0 ? (
+                      <p className="p-4 text-center text-sm text-muted-foreground">Semua stok aman ✅</p>
+                    ) : (
+                      lowStockItems.map(item => (
+                        <div key={item.id} className="flex items-center gap-3 border-b border-border p-3 last:border-0">
+                          <div className="rounded-full bg-low/15 p-1.5 text-low">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Stok: {formatStock(item.stock, item.baseUnit, item.units)} (min: {item.minStock} {item.baseUnit})
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               <Button
                 className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-md"

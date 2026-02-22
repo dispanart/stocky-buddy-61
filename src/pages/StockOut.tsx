@@ -168,7 +168,11 @@ const StockOut = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{tx.itemName}</p>
-                        <p className="text-xs text-muted-foreground">-{tx.quantity} {tx.unit}</p>
+                        <p className="text-xs text-muted-foreground">-{tx.quantity} {tx.unit} • {tx.user}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(tx.timestamp).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}{' '}
+                          {new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
                     </div>
                   ))}
