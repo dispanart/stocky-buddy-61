@@ -31,9 +31,7 @@ const StockIn = () => {
     setSelectedItemId(itemId);
     const item = items.find(i => i.id === itemId);
     if (item) {
-      const smartUnit = getSmartUnit(itemId);
-      const allUnits = [item.baseUnit, ...item.units.map(u => u.unit)];
-      setUnit(smartUnit && allUnits.includes(smartUnit) ? smartUnit : item.baseUnit);
+      setUnit(item.baseUnit);
     }
   };
 
@@ -110,13 +108,7 @@ const StockIn = () => {
                       </div>
                       <div>
                         <Label>Satuan</Label>
-                        <Select value={unit} onValueChange={setUnit}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={selectedItem.baseUnit}>{selectedItem.baseUnit}</SelectItem>
-                            {selectedItem.units.map(u => <SelectItem key={u.unit} value={u.unit}>{u.unit}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Input value={selectedItem.baseUnit} disabled className="bg-muted" />
                       </div>
                     </div>
 
