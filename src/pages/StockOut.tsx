@@ -41,8 +41,13 @@ const StockOut = () => {
   const willGoNegative = selectedItem ? baseQty > selectedItem.stock : false;
 
   const handleSubmit = () => {
-    if (!selectedItem || quantity <= 0) {
-      toast({ title: "Error", description: "Pilih barang dan masukkan jumlah", variant: "destructive" });
+    if (!selectedItem) {
+      toast({ title: "Error", description: "Pilih barang terlebih dahulu", variant: "destructive" });
+      return;
+    }
+    const safeQty = Math.max(0, Math.min(quantity, 999999999));
+    if (safeQty <= 0 || !Number.isFinite(safeQty)) {
+      toast({ title: "Error", description: "Masukkan jumlah yang valid (lebih dari 0)", variant: "destructive" });
       return;
     }
     if (willGoNegative) {
@@ -53,15 +58,15 @@ const StockOut = () => {
       itemId: selectedItem.id,
       itemName: selectedItem.name,
       type: 'out',
-      quantity,
+      quantity: safeQty,
       unit,
       baseQuantity: baseQty,
-      note: note || undefined,
-      reference: reference || undefined,
+      note: note.trim().slice(0, 500) || undefined,
+      reference: reference.trim().slice(0, 100) || undefined,
       user: user?.name || 'Unknown',
     });
     setSmartUnit(selectedItem.id, unit);
-    toast({ title: "Berhasil", description: `${quantity} ${unit} ${selectedItem.name} keluar` });
+    toast({ title: "Berhasil", description: `${safeQty} ${unit} ${selectedItem.name} keluar` });
     setQuantity(0); setNote(""); setReference(""); setSelectedItemId("");
     setRefresh(r => r + 1);
   };
@@ -97,7 +102,7 @@ const StockOut = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Jumlah</Label>
-                        <Input type="number" value={quantity || ''} onChange={e => setQuantity(Number(e.target.value))} min={0} />
+                        <Input type="number" value={quantity || ''} onChange={e => setQuantity(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
                       </div>
                       <div>
                         <Label>Satuan</Label>
@@ -128,11 +133,11 @@ const StockOut = () => {
 
                     <div>
                       <Label>Referensi Job/PO (opsional)</Label>
-                      <Input value={reference} onChange={e => setReference(e.target.value)} placeholder="JOB-2024-001" />
+                      <Input value={reference} onChange={e => setReference(e.target.value.slice(0, 100))} placeholder="JOB-2024-001" maxLength={100} />
                     </div>
                     <div>
                       <Label>Catatan (opsional)</Label>
-                      <Textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Catatan tambahan..." rows={2} />
+                      <Textarea value={note} onChange={e => setNote(e.target.value.slice(0, 500))} placeholder="Catatan tambahan..." rows={2} maxLength={500} />
                     </div>
 
                     <Button onClick={handleSubmit} disabled={willGoNegative} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">

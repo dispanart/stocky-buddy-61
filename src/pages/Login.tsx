@@ -38,9 +38,10 @@ const Login = () => {
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={username}
-                  onChange={e => setUsername(e.target.value)}
+                  onChange={e => setUsername(e.target.value.slice(0, 50))}
                   placeholder="Username"
                   className="pl-9"
+                  maxLength={50}
                   autoFocus
                 />
               </div>
@@ -52,9 +53,10 @@ const Login = () => {
                 <Input
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value.slice(0, 100))}
                   placeholder="Password"
                   className="pl-9"
+                  maxLength={100}
                 />
               </div>
             </div>
@@ -62,11 +64,6 @@ const Login = () => {
             <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
               Masuk
             </Button>
-            <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
-              <p className="font-medium">Default Akun:</p>
-              <p>Admin: admin / admin123</p>
-              <p>Staff: staff / staff123</p>
-            </div>
           </form>
         </CardContent>
       </Card>
