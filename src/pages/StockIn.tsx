@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const StockIn = () => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const items = getItems();
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
@@ -70,6 +71,17 @@ const StockIn = () => {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Stock In — Barang Masuk</h1>
 
+        {!isAdmin ? (
+          <Card className="shadow-md">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="rounded-xl bg-low/10 p-4 mb-4">
+                <PackagePlus className="h-8 w-8 text-low" />
+              </div>
+              <p className="text-lg font-medium text-foreground">Akses Terbatas</p>
+              <p className="text-sm text-muted-foreground mt-1">Hanya Admin yang bisa melakukan Stock In.</p>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <Card className="shadow-md">
@@ -171,6 +183,7 @@ const StockIn = () => {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
     </AppLayout>
   );
