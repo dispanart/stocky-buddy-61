@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, AlertTriangle, Clock, Eye, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { AlertTriangle, Clock, Eye, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { getItems, getTransactions } from "@/lib/inventory-store";
 import { getStockStatus, formatStock, CATEGORIES } from "@/lib/types";
+import { getIconByName } from "@/components/IconPicker";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -65,7 +66,7 @@ const Dashboard = () => {
                 <p className="text-3xl font-bold">{totalItems}</p>
               </div>
               <div className="rounded-xl bg-primary-foreground/20 p-3">
-                <Package className="h-6 w-6" />
+                {(() => { const Icon = getIconByName("Package"); return <Icon className="h-6 w-6" />; })()}
               </div>
             </CardContent>
           </Card>
@@ -130,6 +131,7 @@ const Dashboard = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10"></TableHead>
                       <TableHead>Item Name</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Qty</TableHead>
@@ -140,15 +142,21 @@ const Dashboard = () => {
                   <TableBody>
                     {filteredItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                           {items.length === 0 ? "Belum ada barang. Tambahkan di Master Data." : "Tidak ada hasil."}
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredItems.slice(0, 10).map(item => {
                         const status = getStockStatus(item.stock, item.minStock);
+                        const ItemIcon = getIconByName(item.icon || "Package");
                         return (
                           <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                                <ItemIcon className="h-4 w-4 text-primary" />
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell className="text-muted-foreground">{item.category}</TableCell>
                             <TableCell>{formatStock(item.stock, item.baseUnit, item.units)}</TableCell>

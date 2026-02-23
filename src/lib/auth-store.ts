@@ -83,6 +83,22 @@ export function login(username: string, password: string): Omit<User, 'passwordH
   return null;
 }
 
+export function addUser(username: string, name: string, password: string, role: UserRole): boolean {
+  if (!username || !name || !password) return false;
+  const users = getUsers();
+  if (users.find(u => u.username === username)) return false;
+  const newUser: User = {
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    username,
+    name,
+    role,
+    passwordHash: simpleHash(password),
+  };
+  users.push(newUser);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  return true;
+}
+
 export function logout(): void {
   localStorage.removeItem(SESSION_KEY);
 }
