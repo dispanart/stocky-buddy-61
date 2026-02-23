@@ -4,12 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getItems, getTransactions } from "@/lib/inventory-store";
 import { getStockStatus, formatStock, CATEGORIES } from "@/lib/types";
 import { format, startOfMonth, endOfMonth, isWithinInterval, subMonths } from "date-fns";
 import { id } from "date-fns/locale";
-import { Package, ArrowDownUp, TrendingUp, AlertTriangle } from "lucide-react";
+import { Package, ArrowDownUp, TrendingUp, AlertTriangle, FileDown, FileSpreadsheet } from "lucide-react";
 import {
   ChartContainer,
   ChartTooltip,
@@ -17,6 +18,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_STYLES: Record<string, string> = {
   safe: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
@@ -26,13 +28,62 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = { safe: "Aman", mid: "Menipis", low: "Kritis" };
 
+// CSV export helper
+function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+  const csvContent = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// Simple PDF export (print-based)
+function exportPDF(title: string) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+  
+  const content = document.querySelector("[data-print-area]");
+  if (!content) return;
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        h2 { font-size: 14px; color: #666; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; font-weight: 600; }
+        .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .safe { background: #dcfce7; color: #16a34a; }
+        .mid { background: #fef3c7; color: #d97706; }
+        .low { background: #fee2e2; color: #dc2626; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>PrintStock - ${title}</h1>
+      <h2>Tanggal: ${format(new Date(), "dd MMMM yyyy", { locale: id })}</h2>
+      ${content.innerHTML}
+      <script>window.print(); window.close();</script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
 const Reports = () => {
+  const { toast } = useToast();
   const items = useMemo(() => getItems(), []);
   const transactions = useMemo(() => getTransactions(), []);
 
   const [monthFilter, setMonthFilter] = useState(() => format(new Date(), "yyyy-MM"));
 
-  // Generate last 12 months for filter
   const monthOptions = useMemo(() => {
     const opts = [];
     for (let i = 0; i < 12; i++) {
@@ -42,7 +93,6 @@ const Reports = () => {
     return opts;
   }, []);
 
-  // Filtered transactions by month
   const filteredTx = useMemo(() => {
     const [y, m] = monthFilter.split("-").map(Number);
     const start = startOfMonth(new Date(y, m - 1));
@@ -52,7 +102,6 @@ const Reports = () => {
     );
   }, [transactions, monthFilter]);
 
-  // Stock summary
   const stockSummary = useMemo(() => {
     return items.map((item) => {
       const status = getStockStatus(item.stock, item.minStock);
@@ -63,7 +112,6 @@ const Reports = () => {
     });
   }, [items]);
 
-  // Category movement chart data
   const categoryData = useMemo(() => {
     const map: Record<string, { category: string; masuk: number; keluar: number }> = {};
     CATEGORIES.forEach((c) => (map[c] = { category: c, masuk: 0, keluar: 0 }));
@@ -82,7 +130,6 @@ const Reports = () => {
     keluar: { label: "Keluar", color: "hsl(var(--destructive, 0 84% 60%))" },
   };
 
-  // Stats
   const stats = useMemo(() => {
     const totalIn = filteredTx.filter((t) => t.type === "in").reduce((s, t) => s + t.baseQuantity, 0);
     const totalOut = filteredTx.filter((t) => t.type === "out").reduce((s, t) => s + t.baseQuantity, 0);
@@ -90,21 +137,48 @@ const Reports = () => {
     return { totalIn, totalOut, txCount: filteredTx.length, lowItems };
   }, [filteredTx, items]);
 
+  const handleExportStockCSV = () => {
+    const headers = ["Nama", "SKU", "Kategori", "Stok", "Min Stok", "Status"];
+    const rows = stockSummary.map(i => [i.name, i.sku, i.category, i.stockDisplay, `${i.minStock} ${i.baseUnit}`, STATUS_LABEL[i.status]]);
+    downloadCSV(`stok_${monthFilter}.csv`, headers, rows);
+    toast({ title: "Berhasil", description: "Data stok berhasil diexport ke CSV" });
+  };
+
+  const handleExportTxCSV = () => {
+    const headers = ["Tanggal", "Barang", "Tipe", "Jumlah", "Referensi", "User"];
+    const rows = filteredTx.map(tx => [
+      format(new Date(tx.timestamp), "dd/MM/yyyy HH:mm"),
+      tx.itemName,
+      tx.type === "in" ? "Masuk" : "Keluar",
+      `${tx.quantity} ${tx.unit}`,
+      tx.reference || "-",
+      tx.user,
+    ]);
+    downloadCSV(`transaksi_${monthFilter}.csv`, headers, rows);
+    toast({ title: "Berhasil", description: "Riwayat transaksi berhasil diexport ke CSV" });
+  };
+
+  const handleExportPDF = (title: string) => {
+    exportPDF(title);
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">Laporan</h1>
-          <Select value={monthFilter} onValueChange={setMonthFilter}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={monthFilter} onValueChange={setMonthFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -120,7 +194,7 @@ const Reports = () => {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/30 p-2.5"><TrendingUp className="h-5 w-5 text-emerald-600" /></div>
+              <div className="rounded-lg bg-safe/10 p-2.5"><TrendingUp className="h-5 w-5 text-safe" /></div>
               <div>
                 <p className="text-xs text-muted-foreground">Barang Masuk</p>
                 <p className="text-xl font-bold text-foreground">{stats.totalIn.toLocaleString()}</p>
@@ -129,7 +203,7 @@ const Reports = () => {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-2.5"><ArrowDownUp className="h-5 w-5 text-blue-600" /></div>
+              <div className="rounded-lg bg-primary/10 p-2.5"><ArrowDownUp className="h-5 w-5 text-primary" /></div>
               <div>
                 <p className="text-xs text-muted-foreground">Barang Keluar</p>
                 <p className="text-xl font-bold text-foreground">{stats.totalOut.toLocaleString()}</p>
@@ -138,7 +212,7 @@ const Reports = () => {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg bg-red-100 dark:bg-red-900/30 p-2.5"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+              <div className="rounded-lg bg-low/10 p-2.5"><AlertTriangle className="h-5 w-5 text-low" /></div>
               <div>
                 <p className="text-xs text-muted-foreground">Stok Kritis</p>
                 <p className="text-xl font-bold text-foreground">{stats.lowItems}</p>
@@ -158,8 +232,18 @@ const Reports = () => {
           {/* Tab: Stock Summary */}
           <TabsContent value="stock">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Ringkasan Stok Barang</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">Ringkasan Stok Barang</CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportStockCSV}>
+                    <FileSpreadsheet className="h-4 w-4" /> Excel/CSV
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleExportPDF("Ringkasan Stok")}>
+                    <FileDown className="h-4 w-4" /> PDF
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent data-print-area>
                 {stockSummary.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Belum ada data barang.</p>
                 ) : (
@@ -201,8 +285,18 @@ const Reports = () => {
           {/* Tab: Transaction History */}
           <TabsContent value="transactions">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Riwayat Transaksi</CardTitle></CardHeader>
-              <CardContent>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">Riwayat Transaksi</CardTitle>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportTxCSV}>
+                    <FileSpreadsheet className="h-4 w-4" /> Excel/CSV
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleExportPDF("Riwayat Transaksi")}>
+                    <FileDown className="h-4 w-4" /> PDF
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent data-print-area>
                 {filteredTx.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi di bulan ini.</p>
                 ) : (

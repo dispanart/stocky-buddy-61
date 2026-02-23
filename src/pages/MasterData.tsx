@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Package, ShieldAlert } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldAlert } from "lucide-react";
 import { getItems, addItem, updateItem, deleteItem } from "@/lib/inventory-store";
 import { CATEGORIES, BASE_UNITS, UNIT_PRESETS, getStockStatus, formatStock, Item } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { IconPicker, getIconByName } from "@/components/IconPicker";
 
 const MasterData = () => {
   const { toast } = useToast();
@@ -29,9 +30,10 @@ const MasterData = () => {
   const [baseUnit, setBaseUnit] = useState<string>(BASE_UNITS[0]);
   const [stock, setStock] = useState(0);
   const [minStock, setMinStock] = useState(50);
+  const [icon, setIcon] = useState("Package");
 
   const resetForm = () => {
-    setName(""); setSku(""); setCategory(CATEGORIES[0]); setBaseUnit(BASE_UNITS[0]); setStock(0); setMinStock(50);
+    setName(""); setSku(""); setCategory(CATEGORIES[0]); setBaseUnit(BASE_UNITS[0]); setStock(0); setMinStock(50); setIcon("Package");
     setEditingItem(null);
   };
 
@@ -39,6 +41,7 @@ const MasterData = () => {
     setEditingItem(item);
     setName(item.name); setSku(item.sku); setCategory(item.category);
     setBaseUnit(item.baseUnit); setStock(item.stock); setMinStock(item.minStock);
+    setIcon(item.icon || "Package");
     setDialogOpen(true);
   };
 
@@ -51,7 +54,6 @@ const MasterData = () => {
       return;
     }
     
-    // Check duplicate SKU
     const existingItems = getItems();
     const duplicate = existingItems.find(i => i.sku.toLowerCase() === trimmedSku.toLowerCase() && i.id !== editingItem?.id);
     if (duplicate) {
@@ -64,10 +66,10 @@ const MasterData = () => {
     
     const units = UNIT_PRESETS[baseUnit] || [];
     if (editingItem) {
-      updateItem(editingItem.id, { name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock });
+      updateItem(editingItem.id, { name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon });
       toast({ title: "Berhasil", description: `${trimmedName} berhasil diperbarui` });
     } else {
-      addItem({ name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock });
+      addItem({ name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon });
       toast({ title: "Berhasil", description: `${trimmedName} berhasil ditambahkan` });
     }
     setItems(getItems());
@@ -81,9 +83,9 @@ const MasterData = () => {
     toast({ title: "Dihapus", description: `${item.name} berhasil dihapus` });
   };
 
-  // Live preview
   const previewStatus = getStockStatus(stock, minStock);
   const previewUnits = UNIT_PRESETS[baseUnit] || [];
+  const PreviewIcon = getIconByName(icon);
 
   return (
     <AppLayout>
@@ -111,6 +113,10 @@ const MasterData = () => {
                   <div>
                     <Label>SKU</Label>
                     <Input value={sku} onChange={e => setSku(e.target.value.slice(0, 50))} placeholder="KRT-001" maxLength={50} />
+                  </div>
+                  <div>
+                    <Label>Icon</Label>
+                    <IconPicker value={icon} onChange={setIcon} />
                   </div>
                   <div>
                     <Label>Kategori</Label>
@@ -152,7 +158,7 @@ const MasterData = () => {
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between">
                         <div className="rounded-lg bg-primary/10 p-2.5">
-                          <Package className="h-5 w-5 text-primary" />
+                          <PreviewIcon className="h-5 w-5 text-primary" />
                         </div>
                         <Badge variant="outline" className={
                           previewStatus === 'low' ? 'bg-low/15 text-low border-low/30' :
@@ -189,6 +195,7 @@ const MasterData = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Kategori</TableHead>
@@ -201,15 +208,21 @@ const MasterData = () => {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       Belum ada data barang.
                     </TableCell>
                   </TableRow>
                 ) : (
                   items.map(item => {
                     const status = getStockStatus(item.stock, item.minStock);
+                    const ItemIcon = getIconByName(item.icon || "Package");
                     return (
                       <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                            <ItemIcon className="h-4 w-4 text-primary" />
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell className="text-muted-foreground">{item.sku}</TableCell>
                         <TableCell>{item.category}</TableCell>

@@ -12,6 +12,7 @@ export interface Item {
   units: UnitConversion[];
   stock: number; // in base units
   minStock: number; // threshold in base units
+  icon?: string; // lucide icon name
   createdAt: string;
 }
 
