@@ -4,35 +4,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PackagePlus, Calculator, ArrowUpRight } from "lucide-react";
-import { getItems, addTransaction, getSmartUnit, setSmartUnit, getTransactions } from "@/lib/inventory-store";
+import { PackagePlus, Calculator, ArrowUpRight, Loader2 } from "lucide-react";
+import { setSmartUnit } from "@/lib/inventory-store";
 import { convertToBase, formatStock } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useItems, useTransactions, useAddTransaction } from "@/hooks/use-inventory";
+import { ItemCombobox } from "@/components/ItemCombobox";
 
 const StockIn = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const items = getItems();
+
+  const { data: items = [], isLoading: itemsLoading } = useItems();
+  const { data: transactions = [] } = useTransactions();
+  const addTxMut = useAddTransaction();
+
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [reference, setReference] = useState("");
-  const [, setRefresh] = useState(0);
 
   const selectedItem = items.find(i => i.id === selectedItemId);
 
   const handleItemSelect = (itemId: string) => {
     setSelectedItemId(itemId);
     const item = items.find(i => i.id === itemId);
-    if (item) {
-      setUnit(item.baseUnit);
-    }
+    if (item) setUnit(item.baseUnit);
   };
 
   const baseQty = useMemo(() => {
@@ -40,7 +41,7 @@ const StockIn = () => {
     return convertToBase(quantity, unit, selectedItem.baseUnit, selectedItem.units);
   }, [selectedItem, quantity, unit]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedItem) {
       toast({ title: "Error", description: "Pilih barang terlebih dahulu", variant: "destructive" });
       return;
@@ -50,24 +51,37 @@ const StockIn = () => {
       toast({ title: "Error", description: "Masukkan jumlah yang valid (lebih dari 0)", variant: "destructive" });
       return;
     }
-    addTransaction({
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      type: 'in',
-      quantity: safeQty,
-      unit,
-      baseQuantity: baseQty,
-      note: note.trim().slice(0, 500) || undefined,
-      reference: reference.trim().slice(0, 100) || undefined,
-      user: user?.name || 'Unknown',
-    });
-    setSmartUnit(selectedItem.id, unit);
-    toast({ title: "Berhasil", description: `${safeQty} ${unit} ${selectedItem.name} masuk` });
-    setQuantity(0); setNote(""); setReference(""); setSelectedItemId("");
-    setRefresh(r => r + 1);
+    try {
+      await addTxMut.mutateAsync({
+        itemId: selectedItem.id,
+        itemName: selectedItem.name,
+        type: 'in',
+        quantity: safeQty,
+        unit,
+        baseQuantity: baseQty,
+        note: note.trim().slice(0, 500) || undefined,
+        reference: reference.trim().slice(0, 100) || undefined,
+        user: user?.name || 'Unknown',
+      });
+      setSmartUnit(selectedItem.id, unit);
+      toast({ title: "Berhasil", description: `${safeQty} ${unit} ${selectedItem.name} masuk` });
+      setQuantity(0); setNote(""); setReference(""); setSelectedItemId("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Gagal menyimpan", variant: "destructive" });
+    }
   };
 
-  const recentIn = getTransactions().filter(t => t.type === 'in').slice(0, 5);
+  const recentIn = transactions.filter(t => t.type === 'in').slice(0, 5);
+
+  if (itemsLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -96,12 +110,7 @@ const StockIn = () => {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Pilih Barang</Label>
-                  <Select value={selectedItemId} onValueChange={handleItemSelect}>
-                    <SelectTrigger><SelectValue placeholder="Pilih barang..." /></SelectTrigger>
-                    <SelectContent>
-                      {items.map(i => <SelectItem key={i.id} value={i.id}>{i.name} ({i.sku})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <ItemCombobox items={items} value={selectedItemId} onSelect={handleItemSelect} />
                 </div>
 
                 {selectedItem && (
@@ -117,7 +126,6 @@ const StockIn = () => {
                       </div>
                     </div>
 
-                    {/* Live Calculation */}
                     {quantity > 0 && unit !== selectedItem.baseUnit && (
                       <div className="flex items-center gap-2 rounded-lg bg-safe/10 p-3 text-sm">
                         <Calculator className="h-4 w-4 text-safe" />
@@ -141,8 +149,9 @@ const StockIn = () => {
                       <Textarea value={note} onChange={e => setNote(e.target.value.slice(0, 500))} placeholder="Catatan tambahan..." rows={2} maxLength={500} />
                     </div>
 
-                    <Button onClick={handleSubmit} className="w-full bg-safe text-safe-foreground hover:bg-safe/90">
-                      <PackagePlus className="mr-2 h-4 w-4" /> Submit Stock In
+                    <Button onClick={handleSubmit} className="w-full bg-safe text-safe-foreground hover:bg-safe/90" disabled={addTxMut.isPending}>
+                      {addTxMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackagePlus className="mr-2 h-4 w-4" />}
+                      Submit Stock In
                     </Button>
                   </>
                 )}
@@ -150,7 +159,6 @@ const StockIn = () => {
             </Card>
           </div>
 
-          {/* Recent Stock In */}
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="text-base">Riwayat Masuk Terbaru</CardTitle>

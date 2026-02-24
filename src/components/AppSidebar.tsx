@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp } from "lucide-react";
+import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NavLink } from "@/components/NavLink";
@@ -13,14 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { addUser, UserRole } from "@/lib/auth-store";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarFooter,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -32,20 +25,20 @@ const navItems = [
 ];
 
 export function AppSidebar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const isAdmin = user?.role === "admin";
   const [accountOpen, setAccountOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
 
-  // Register form
   const [newName, setNewName] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("staff");
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) {
       toast({ title: "Error", description: "Semua kolom wajib diisi", variant: "destructive" });
       return;
@@ -54,14 +47,20 @@ export function AppSidebar() {
       toast({ title: "Error", description: "Password minimal 6 karakter", variant: "destructive" });
       return;
     }
-    const ok = addUser(newUsername.trim(), newName.trim(), newPassword, newRole);
-    if (ok) {
-      toast({ title: "Berhasil", description: `User ${newName.trim()} berhasil didaftarkan` });
-      setNewName(""); setNewUsername(""); setNewPassword(""); setNewRole("staff");
-      setRegisterOpen(false);
-    } else {
-      toast({ title: "Error", description: "Username sudah digunakan", variant: "destructive" });
+    setRegistering(true);
+    try {
+      const ok = await addUser(newUsername.trim(), newName.trim(), newPassword, newRole);
+      if (ok) {
+        toast({ title: "Berhasil", description: `User ${newName.trim()} berhasil didaftarkan` });
+        setNewName(""); setNewUsername(""); setNewPassword(""); setNewRole("staff");
+        setRegisterOpen(false);
+      } else {
+        toast({ title: "Error", description: "Username sudah digunakan", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Gagal mendaftarkan user", variant: "destructive" });
     }
+    setRegistering(false);
   };
 
   return (
@@ -117,7 +116,6 @@ export function AppSidebar() {
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-2">
-            {/* Dark Mode Toggle */}
             <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2.5">
               <div className="flex items-center gap-2">
                 {theme === "dark" ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-4 w-4 text-warning" />}
@@ -126,7 +124,6 @@ export function AppSidebar() {
               <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
             </div>
 
-            {/* Admin: Register User */}
             {isAdmin && (
               <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
                 <DialogTrigger asChild>
@@ -161,11 +158,18 @@ export function AppSidebar() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={handleRegister} className="w-full">Daftarkan</Button>
+                    <Button onClick={handleRegister} className="w-full" disabled={registering}>
+                      {registering ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Daftarkan
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
             )}
+
+            <Button variant="ghost" className="w-full justify-start gap-2 text-sm text-low hover:text-low" onClick={logout}>
+              <LogOut className="h-4 w-4" /> Keluar
+            </Button>
           </CollapsibleContent>
         </Collapsible>
       </SidebarFooter>
