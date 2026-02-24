@@ -8,22 +8,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ShieldAlert } from "lucide-react";
-import { getItems, addItem, updateItem, deleteItem } from "@/lib/inventory-store";
+import { Plus, Pencil, Trash2, ShieldAlert, Loader2 } from "lucide-react";
 import { CATEGORIES, BASE_UNITS, UNIT_PRESETS, getStockStatus, formatStock, Item } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { IconPicker, getIconByName } from "@/components/IconPicker";
+import { useItems, useAddItem, useUpdateItem, useDeleteItem } from "@/hooks/use-inventory";
 
 const MasterData = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [items, setItems] = useState(getItems());
+
+  const { data: items = [], isLoading } = useItems();
+  const addItemMut = useAddItem();
+  const updateItemMut = useUpdateItem();
+  const deleteItemMut = useDeleteItem();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  // Form state
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
@@ -45,47 +49,59 @@ const MasterData = () => {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmedName = name.trim().slice(0, 100);
     const trimmedSku = sku.trim().slice(0, 50);
-    
     if (!trimmedName || !trimmedSku) {
       toast({ title: "Error", description: "Nama dan SKU wajib diisi", variant: "destructive" });
       return;
     }
-    
-    const existingItems = getItems();
-    const duplicate = existingItems.find(i => i.sku.toLowerCase() === trimmedSku.toLowerCase() && i.id !== editingItem?.id);
+    const duplicate = items.find(i => i.sku.toLowerCase() === trimmedSku.toLowerCase() && i.id !== editingItem?.id);
     if (duplicate) {
       toast({ title: "Error", description: `SKU "${trimmedSku}" sudah digunakan oleh ${duplicate.name}`, variant: "destructive" });
       return;
     }
-    
     const safeStock = Math.max(0, Math.min(stock, 999999999));
     const safeMinStock = Math.max(0, Math.min(minStock, 999999999));
-    
     const units = UNIT_PRESETS[baseUnit] || [];
-    if (editingItem) {
-      updateItem(editingItem.id, { name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon });
-      toast({ title: "Berhasil", description: `${trimmedName} berhasil diperbarui` });
-    } else {
-      addItem({ name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon });
-      toast({ title: "Berhasil", description: `${trimmedName} berhasil ditambahkan` });
+
+    try {
+      if (editingItem) {
+        await updateItemMut.mutateAsync({ id: editingItem.id, updates: { name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon } });
+        toast({ title: "Berhasil", description: `${trimmedName} berhasil diperbarui` });
+      } else {
+        await addItemMut.mutateAsync({ name: trimmedName, sku: trimmedSku, category, baseUnit, units, stock: safeStock, minStock: safeMinStock, icon });
+        toast({ title: "Berhasil", description: `${trimmedName} berhasil ditambahkan` });
+      }
+      setDialogOpen(false);
+      resetForm();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Gagal menyimpan", variant: "destructive" });
     }
-    setItems(getItems());
-    setDialogOpen(false);
-    resetForm();
   };
 
-  const handleDelete = (item: Item) => {
-    deleteItem(item.id);
-    setItems(getItems());
-    toast({ title: "Dihapus", description: `${item.name} berhasil dihapus` });
+  const handleDelete = async (item: Item) => {
+    try {
+      await deleteItemMut.mutateAsync(item.id);
+      toast({ title: "Dihapus", description: `${item.name} berhasil dihapus` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Gagal menghapus", variant: "destructive" });
+    }
   };
 
   const previewStatus = getStockStatus(stock, minStock);
   const previewUnits = UNIT_PRESETS[baseUnit] || [];
   const PreviewIcon = getIconByName(icon);
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -99,89 +115,86 @@ const MasterData = () => {
                   <Plus className="mr-2 h-4 w-4" /> Tambah Barang
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editingItem ? "Edit Barang" : "Tambah Barang Baru"}</DialogTitle>
-              </DialogHeader>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* Form */}
-                <div className="space-y-4">
-                  <div>
-                    <Label>Nama Barang</Label>
-                    <Input value={name} onChange={e => setName(e.target.value.slice(0, 100))} placeholder="Kertas HVS A4" maxLength={100} />
-                  </div>
-                  <div>
-                    <Label>SKU</Label>
-                    <Input value={sku} onChange={e => setSku(e.target.value.slice(0, 50))} placeholder="KRT-001" maxLength={50} />
-                  </div>
-                  <div>
-                    <Label>Icon</Label>
-                    <IconPicker value={icon} onChange={setIcon} />
-                  </div>
-                  <div>
-                    <Label>Kategori</Label>
-                    <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Satuan Dasar</Label>
-                    <Select value={baseUnit} onValueChange={setBaseUnit}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {BASE_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>{editingItem ? "Edit Barang" : "Tambah Barang Baru"}</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="space-y-4">
                     <div>
-                      <Label>Stok Awal</Label>
-                      <Input type="number" value={stock} onChange={e => setStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
+                      <Label>Nama Barang</Label>
+                      <Input value={name} onChange={e => setName(e.target.value.slice(0, 100))} placeholder="Kertas HVS A4" maxLength={100} />
                     </div>
                     <div>
-                      <Label>Batas Minimum</Label>
-                      <Input type="number" value={minStock} onChange={e => setMinStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
+                      <Label>SKU</Label>
+                      <Input value={sku} onChange={e => setSku(e.target.value.slice(0, 50))} placeholder="KRT-001" maxLength={50} />
                     </div>
+                    <div>
+                      <Label>Icon</Label>
+                      <IconPicker value={icon} onChange={setIcon} />
+                    </div>
+                    <div>
+                      <Label>Kategori</Label>
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Satuan Dasar</Label>
+                      <Select value={baseUnit} onValueChange={setBaseUnit}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {BASE_UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Stok Awal</Label>
+                        <Input type="number" value={stock} onChange={e => setStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
+                      </div>
+                      <div>
+                        <Label>Batas Minimum</Label>
+                        <Input type="number" value={minStock} onChange={e => setMinStock(Math.max(0, Math.min(999999999, Number(e.target.value) || 0)))} min={0} max={999999999} />
+                      </div>
+                    </div>
+                    <Button onClick={handleSubmit} className="w-full bg-primary text-primary-foreground" disabled={addItemMut.isPending || updateItemMut.isPending}>
+                      {(addItemMut.isPending || updateItemMut.isPending) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {editingItem ? "Simpan Perubahan" : "Tambah Barang"}
+                    </Button>
                   </div>
-                  <Button onClick={handleSubmit} className="w-full bg-primary text-primary-foreground">
-                    {editingItem ? "Simpan Perubahan" : "Tambah Barang"}
-                  </Button>
-                </div>
 
-                {/* Live Preview */}
-                <div>
-                  <Label className="mb-2 block text-muted-foreground">Live Preview</Label>
-                  <Card className={`border-2 transition-colors ${previewStatus === 'low' ? 'border-low/50 bg-low/5' : previewStatus === 'mid' ? 'border-warning/50 bg-warning/5' : 'border-safe/50 bg-safe/5'}`}>
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between">
-                        <div className="rounded-lg bg-primary/10 p-2.5">
-                          <PreviewIcon className="h-5 w-5 text-primary" />
+                  <div>
+                    <Label className="mb-2 block text-muted-foreground">Live Preview</Label>
+                    <Card className={`border-2 transition-colors ${previewStatus === 'low' ? 'border-low/50 bg-low/5' : previewStatus === 'mid' ? 'border-warning/50 bg-warning/5' : 'border-safe/50 bg-safe/5'}`}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between">
+                          <div className="rounded-lg bg-primary/10 p-2.5">
+                            <PreviewIcon className="h-5 w-5 text-primary" />
+                          </div>
+                          <Badge variant="outline" className={
+                            previewStatus === 'low' ? 'bg-low/15 text-low border-low/30' :
+                            previewStatus === 'mid' ? 'bg-warning/15 text-warning border-warning/30' :
+                            'bg-safe/15 text-safe border-safe/30'
+                          }>
+                            {previewStatus === 'low' ? 'Low' : previewStatus === 'mid' ? 'Mid' : 'Safe'}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className={
-                          previewStatus === 'low' ? 'bg-low/15 text-low border-low/30' :
-                          previewStatus === 'mid' ? 'bg-warning/15 text-warning border-warning/30' :
-                          'bg-safe/15 text-safe border-safe/30'
-                        }>
-                          {previewStatus === 'low' ? 'Low' : previewStatus === 'mid' ? 'Mid' : 'Safe'}
-                        </Badge>
-                      </div>
-                      <h3 className="mt-3 font-semibold text-foreground">{name || "Nama Barang"}</h3>
-                      <p className="text-xs text-muted-foreground">{sku || "SKU-000"} · {category}</p>
-                      <div className="mt-3 flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-foreground">
-                          {formatStock(stock, baseUnit, previewUnits)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">Min: {minStock} {baseUnit}</p>
-                    </CardContent>
-                  </Card>
+                        <h3 className="mt-3 font-semibold text-foreground">{name || "Nama Barang"}</h3>
+                        <p className="text-xs text-muted-foreground">{sku || "SKU-000"} · {category}</p>
+                        <div className="mt-3 flex items-baseline gap-1">
+                          <span className="text-2xl font-bold text-foreground">{formatStock(stock, baseUnit, previewUnits)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Min: {minStock} {baseUnit}</p>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
           ) : (
             <Badge variant="outline" className="gap-1.5 text-muted-foreground">
               <ShieldAlert className="h-3.5 w-3.5" /> Hanya Admin yang bisa mengelola
@@ -189,7 +202,6 @@ const MasterData = () => {
           )}
         </div>
 
-        {/* Items Table */}
         <Card className="shadow-md">
           <CardContent className="p-0">
             <Table>
@@ -208,9 +220,7 @@ const MasterData = () => {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                      Belum ada data barang.
-                    </TableCell>
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">Belum ada data barang.</TableCell>
                   </TableRow>
                 ) : (
                   items.map(item => {
@@ -243,7 +253,7 @@ const MasterData = () => {
                               <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDelete(item)}>
+                              <Button variant="ghost" size="icon" onClick={() => handleDelete(item)} disabled={deleteItemMut.isPending}>
                                 <Trash2 className="h-4 w-4 text-low" />
                               </Button>
                             </>

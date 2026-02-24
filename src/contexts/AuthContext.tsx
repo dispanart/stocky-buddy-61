@@ -10,7 +10,7 @@ interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -22,23 +22,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session ? { id: session.id, username: session.username, name: session.name, role: session.role } : null;
   });
 
-  // Check session validity periodically and refresh activity on user interaction
   useEffect(() => {
     const checkSession = () => {
       const session = getSession();
-      if (!session && user) {
-        setUser(null);
-      }
+      if (!session && user) setUser(null);
     };
-
-    const handleActivity = () => {
-      if (user) refreshActivity();
-    };
-
-    const interval = setInterval(checkSession, 60_000); // check every minute
+    const handleActivity = () => { if (user) refreshActivity(); };
+    const interval = setInterval(checkSession, 60_000);
     window.addEventListener('click', handleActivity);
     window.addEventListener('keydown', handleActivity);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('click', handleActivity);
@@ -46,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const login = useCallback((username: string, password: string) => {
-    const result = doLogin(username, password);
+  const login = useCallback(async (username: string, password: string) => {
+    const result = await doLogin(username, password);
     if (result) {
       setUser({ id: result.id, username: result.username, name: result.name, role: result.role });
       return true;

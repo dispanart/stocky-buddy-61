@@ -5,11 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Clock, Eye, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { getItems, getTransactions } from "@/lib/inventory-store";
+import { AlertTriangle, Clock, Eye, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import { getStockStatus, formatStock, CATEGORIES } from "@/lib/types";
 import { getIconByName } from "@/components/IconPicker";
 import { useNavigate } from "react-router-dom";
+import { useItems, useTransactions } from "@/hooks/use-inventory";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,8 +17,8 @@ const Dashboard = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const items = getItems();
-  const transactions = getTransactions();
+  const { data: items = [], isLoading: itemsLoading } = useItems();
+  const { data: transactions = [], isLoading: txLoading } = useTransactions();
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
@@ -53,6 +53,16 @@ const Dashboard = () => {
       </Badge>
     );
   };
+
+  if (itemsLoading || txLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout onSearch={setSearchQuery}>
@@ -104,20 +114,14 @@ const Dashboard = () => {
                 <CardTitle className="text-lg">Stock Status</CardTitle>
                 <div className="flex gap-2">
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="h-8 w-32 text-xs">
-                      <SelectValue placeholder="Kategori" />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Kategori" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua</SelectItem>
-                      {CATEGORIES.map(c => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
+                      {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-8 w-28 text-xs">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua</SelectItem>
                       <SelectItem value="safe">Safe</SelectItem>
@@ -174,9 +178,7 @@ const Dashboard = () => {
                 </Table>
                 {filteredItems.length > 10 && (
                   <div className="mt-3 text-center">
-                    <Button variant="link" className="text-primary" onClick={() => navigate("/master-data")}>
-                      See All Items →
-                    </Button>
+                    <Button variant="link" className="text-primary" onClick={() => navigate("/master-data")}>See All Items →</Button>
                   </div>
                 )}
               </CardContent>
@@ -186,9 +188,7 @@ const Dashboard = () => {
           {/* Recent Activity */}
           <div>
             <Card className="shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-              </CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-lg">Recent Activity</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {recentTransactions.length === 0 ? (

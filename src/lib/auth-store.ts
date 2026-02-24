@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export type UserRole = 'admin' | 'staff';
 
 export interface User {
@@ -5,13 +7,10 @@ export interface User {
   username: string;
   name: string;
   role: UserRole;
-  passwordHash: string;
 }
 
-const USERS_KEY = 'printstock_users';
 const SESSION_KEY = 'printstock_session';
-const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 hours
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 
 interface Session {
   id: string;
@@ -22,81 +21,57 @@ interface Session {
   lastActivity: number;
 }
 
-// Simple hash function for client-side (not cryptographically secure, but better than plaintext)
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   return 'h_' + Math.abs(hash).toString(36) + '_' + str.length;
 }
 
-function getDefaultUsers(): User[] {
-  return [
-    { id: '1', username: 'admin', name: 'Admin', role: 'admin', passwordHash: simpleHash('admin123') },
-    { id: '2', username: 'staff', name: 'Staff', role: 'staff', passwordHash: simpleHash('staff123') },
-  ];
+async function seedDefaultUsers() {
+  const { count } = await supabase.from('app_users').select('*', { count: 'exact', head: true });
+  if (count === 0 || count === null) {
+    await supabase.from('app_users').insert([
+      { username: 'admin', name: 'Admin', role: 'admin', password_hash: simpleHash('admin123') },
+      { username: 'staff', name: 'Staff', role: 'staff', password_hash: simpleHash('staff123') },
+    ]);
+  }
 }
 
-export function getUsers(): User[] {
-  const data = localStorage.getItem(USERS_KEY);
-  if (!data) {
-    const defaults = getDefaultUsers();
-    localStorage.setItem(USERS_KEY, JSON.stringify(defaults));
-    return defaults;
-  }
-  const users = JSON.parse(data) as User[];
-  // Migrate old format (plaintext password) to hashed
-  if (users.length > 0 && 'password' in users[0] && !('passwordHash' in users[0])) {
-    const migrated = users.map((u: any) => ({
-      ...u,
-      passwordHash: simpleHash(u.password),
-    }));
-    migrated.forEach((u: any) => delete u.password);
-    localStorage.setItem(USERS_KEY, JSON.stringify(migrated));
-    return migrated;
-  }
-  return users;
-}
-
-export function login(username: string, password: string): Omit<User, 'passwordHash'> | null {
+export async function login(username: string, password: string): Promise<User | null> {
   if (!username || !password || username.length > 50 || password.length > 100) return null;
-  
-  const users = getUsers();
+
+  await seedDefaultUsers();
+
   const hash = simpleHash(password);
-  const user = users.find(u => u.username === username && u.passwordHash === hash);
-  if (user) {
-    const now = Date.now();
-    const session: Session = { 
-      id: user.id, 
-      username: user.username, 
-      name: user.name, 
-      role: user.role,
-      createdAt: now,
-      lastActivity: now,
-    };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    return { id: user.id, username: user.username, name: user.name, role: user.role };
-  }
-  return null;
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('id, username, name, role')
+    .eq('username', username)
+    .eq('password_hash', hash)
+    .single();
+
+  if (error || !data) return null;
+
+  const user: User = { id: data.id, username: data.username, name: data.name, role: data.role as UserRole };
+  const now = Date.now();
+  const session: Session = { ...user, createdAt: now, lastActivity: now };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return user;
 }
 
-export function addUser(username: string, name: string, password: string, role: UserRole): boolean {
+export async function addUser(username: string, name: string, password: string, role: UserRole): Promise<boolean> {
   if (!username || !name || !password) return false;
-  const users = getUsers();
-  if (users.find(u => u.username === username)) return false;
-  const newUser: User = {
-    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+  const { error } = await supabase.from('app_users').insert({
     username,
     name,
     role,
-    passwordHash: simpleHash(password),
-  };
-  users.push(newUser);
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  return true;
+    password_hash: simpleHash(password),
+  });
+  return !error;
 }
 
 export function logout(): void {
@@ -112,24 +87,12 @@ export function refreshActivity(): void {
   }
 }
 
-export function getSession(): Omit<User, 'passwordHash'> | null {
+export function getSession(): User | null {
   const data = localStorage.getItem(SESSION_KEY);
   if (!data) return null;
-  
   const session: Session = JSON.parse(data);
   const now = Date.now();
-  
-  // Check session expiration (8 hours)
-  if (now - session.createdAt > SESSION_DURATION) {
-    logout();
-    return null;
-  }
-  
-  // Check inactivity timeout (30 minutes)
-  if (now - session.lastActivity > INACTIVITY_TIMEOUT) {
-    logout();
-    return null;
-  }
-  
+  if (now - session.createdAt > 8 * 60 * 60 * 1000) { logout(); return null; }
+  if (now - session.lastActivity > INACTIVITY_TIMEOUT) { logout(); return null; }
   return { id: session.id, username: session.username, name: session.name, role: session.role };
 }

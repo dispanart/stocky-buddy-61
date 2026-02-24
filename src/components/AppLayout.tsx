@@ -1,14 +1,14 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, PackageMinus, LogOut, AlertTriangle } from "lucide-react";
+import { Bell, Search, PackageMinus, LogOut, AlertTriangle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { getStockStatus, formatStock } from "@/lib/types";
-import { getItems } from "@/lib/inventory-store";
 import { useAuth } from "@/contexts/AuthContext";
+import { useItems } from "@/hooks/use-inventory";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -19,7 +19,7 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const items = getItems();
+  const { data: items = [] } = useItems();
   const lowStockItems = items.filter(i => getStockStatus(i.stock, i.minStock) === 'low');
   const lowStockCount = lowStockItems.length;
 
@@ -28,7 +28,6 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex flex-1 flex-col">
-          {/* Header */}
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-card px-6 shadow-sm">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="text-muted-foreground" />
@@ -102,7 +101,6 @@ export function AppLayout({ children, onSearch }: AppLayoutProps) {
             </div>
           </header>
 
-          {/* Main Content */}
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>

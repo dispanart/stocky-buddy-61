@@ -4,33 +4,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PackageMinus, Calculator, ArrowDownRight, AlertTriangle } from "lucide-react";
-import { getItems, addTransaction, getSmartUnit, setSmartUnit, getTransactions } from "@/lib/inventory-store";
+import { PackageMinus, Calculator, ArrowDownRight, AlertTriangle, Loader2 } from "lucide-react";
+import { setSmartUnit } from "@/lib/inventory-store";
 import { convertToBase, formatStock } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useItems, useTransactions, useAddTransaction } from "@/hooks/use-inventory";
+import { ItemCombobox } from "@/components/ItemCombobox";
 
 const StockOut = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const items = getItems();
+
+  const { data: items = [], isLoading: itemsLoading } = useItems();
+  const { data: transactions = [] } = useTransactions();
+  const addTxMut = useAddTransaction();
+
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [reference, setReference] = useState("");
-  const [, setRefresh] = useState(0);
 
   const selectedItem = items.find(i => i.id === selectedItemId);
 
   const handleItemSelect = (itemId: string) => {
     setSelectedItemId(itemId);
     const item = items.find(i => i.id === itemId);
-    if (item) {
-      setUnit(item.baseUnit);
-    }
+    if (item) setUnit(item.baseUnit);
   };
 
   const baseQty = useMemo(() => {
@@ -40,7 +42,7 @@ const StockOut = () => {
 
   const willGoNegative = selectedItem ? baseQty > selectedItem.stock : false;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedItem) {
       toast({ title: "Error", description: "Pilih barang terlebih dahulu", variant: "destructive" });
       return;
@@ -54,24 +56,37 @@ const StockOut = () => {
       toast({ title: "Stok Tidak Cukup", description: `Stok tersedia: ${formatStock(selectedItem.stock, selectedItem.baseUnit, selectedItem.units)}`, variant: "destructive" });
       return;
     }
-    addTransaction({
-      itemId: selectedItem.id,
-      itemName: selectedItem.name,
-      type: 'out',
-      quantity: safeQty,
-      unit,
-      baseQuantity: baseQty,
-      note: note.trim().slice(0, 500) || undefined,
-      reference: reference.trim().slice(0, 100) || undefined,
-      user: user?.name || 'Unknown',
-    });
-    setSmartUnit(selectedItem.id, unit);
-    toast({ title: "Berhasil", description: `${safeQty} ${unit} ${selectedItem.name} keluar` });
-    setQuantity(0); setNote(""); setReference(""); setSelectedItemId("");
-    setRefresh(r => r + 1);
+    try {
+      await addTxMut.mutateAsync({
+        itemId: selectedItem.id,
+        itemName: selectedItem.name,
+        type: 'out',
+        quantity: safeQty,
+        unit,
+        baseQuantity: baseQty,
+        note: note.trim().slice(0, 500) || undefined,
+        reference: reference.trim().slice(0, 100) || undefined,
+        user: user?.name || 'Unknown',
+      });
+      setSmartUnit(selectedItem.id, unit);
+      toast({ title: "Berhasil", description: `${safeQty} ${unit} ${selectedItem.name} keluar` });
+      setQuantity(0); setNote(""); setReference(""); setSelectedItemId("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Gagal menyimpan", variant: "destructive" });
+    }
   };
 
-  const recentOut = getTransactions().filter(t => t.type === 'out').slice(0, 5);
+  const recentOut = transactions.filter(t => t.type === 'out').slice(0, 5);
+
+  if (itemsLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -89,12 +104,7 @@ const StockOut = () => {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Pilih Barang</Label>
-                  <Select value={selectedItemId} onValueChange={handleItemSelect}>
-                    <SelectTrigger><SelectValue placeholder="Pilih barang..." /></SelectTrigger>
-                    <SelectContent>
-                      {items.map(i => <SelectItem key={i.id} value={i.id}>{i.name} ({i.sku})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <ItemCombobox items={items} value={selectedItemId} onSelect={handleItemSelect} />
                 </div>
 
                 {selectedItem && (
@@ -140,8 +150,9 @@ const StockOut = () => {
                       <Textarea value={note} onChange={e => setNote(e.target.value.slice(0, 500))} placeholder="Catatan tambahan..." rows={2} maxLength={500} />
                     </div>
 
-                    <Button onClick={handleSubmit} disabled={willGoNegative} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                      <PackageMinus className="mr-2 h-4 w-4" /> Submit Stock Out
+                    <Button onClick={handleSubmit} disabled={willGoNegative || addTxMut.isPending} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                      {addTxMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PackageMinus className="mr-2 h-4 w-4" />}
+                      Submit Stock Out
                     </Button>
                   </>
                 )}
