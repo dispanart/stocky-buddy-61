@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, PackageMinus, LogOut, AlertTriangle, Loader2 } from "lucide-react";
+import { Bell, Search, PackageMinus, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,7 +18,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, onSearch, showSearch = false }: AppLayoutProps) {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const { data: items = [] } = useItems();
   const lowStockItems = items.filter(i => getStockStatus(i.stock, i.minStock) === 'low');
@@ -96,10 +96,6 @@ export function AppLayout({ children, onSearch, showSearch = false }: AppLayoutP
               >
                 <PackageMinus className="mr-2 h-4 w-4" />
                 Quick Stock Out
-              </Button>
-
-              <Button variant="ghost" size="icon" onClick={logout} title="Logout">
-                <LogOut className="h-5 w-5 text-muted-foreground" />
               </Button>
             </div>
           </header>

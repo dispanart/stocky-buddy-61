@@ -10,15 +10,11 @@ export interface User {
 }
 
 const SESSION_KEY = 'printstock_session';
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
-
 interface Session {
   id: string;
   username: string;
   name: string;
   role: UserRole;
-  createdAt: number;
-  lastActivity: number;
 }
 
 function simpleHash(str: string): string {
@@ -57,8 +53,7 @@ export async function login(username: string, password: string): Promise<User | 
   if (error || !data) return null;
 
   const user: User = { id: data.id, username: data.username, name: data.name, role: data.role as UserRole };
-  const now = Date.now();
-  const session: Session = { ...user, createdAt: now, lastActivity: now };
+  const session: Session = { ...user };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return user;
 }
@@ -78,21 +73,23 @@ export function logout(): void {
   localStorage.removeItem(SESSION_KEY);
 }
 
-export function refreshActivity(): void {
-  const data = localStorage.getItem(SESSION_KEY);
-  if (data) {
-    const session: Session = JSON.parse(data);
-    session.lastActivity = Date.now();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  }
-}
-
 export function getSession(): User | null {
   const data = localStorage.getItem(SESSION_KEY);
   if (!data) return null;
   const session: Session = JSON.parse(data);
-  const now = Date.now();
-  if (now - session.createdAt > 8 * 60 * 60 * 1000) { logout(); return null; }
-  if (now - session.lastActivity > INACTIVITY_TIMEOUT) { logout(); return null; }
   return { id: session.id, username: session.username, name: session.name, role: session.role };
+}
+
+export async function getUsers(): Promise<User[]> {
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('id, username, name, role')
+    .order('name');
+  if (error || !data) return [];
+  return data.map(u => ({ id: u.id, username: u.username, name: u.name, role: u.role as UserRole }));
+}
+
+export async function deleteUser(id: string): Promise<boolean> {
+  const { error } = await supabase.from('app_users').delete().eq('id', id);
+  return !error;
 }
