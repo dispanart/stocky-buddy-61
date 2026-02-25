@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Lock, User, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
+
+const REMEMBER_KEY = "printstock_remember";
 
 const Login = () => {
   const { login } = useAuth();
@@ -12,6 +15,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    if (saved) {
+      try {
+        const { username: u, password: p } = JSON.parse(saved);
+        setUsername(u || "");
+        setPassword(p || "");
+        setRemember(true);
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +36,15 @@ const Login = () => {
     setLoading(true);
     try {
       const ok = await login(username, password);
-      if (!ok) setError("Username atau password salah");
+      if (ok) {
+        if (remember) {
+          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username, password }));
+        } else {
+          localStorage.removeItem(REMEMBER_KEY);
+        }
+      } else {
+        setError("Username atau password salah");
+      }
     } catch {
       setError("Terjadi kesalahan, coba lagi");
     }
@@ -96,16 +121,37 @@ const Login = () => {
               <div className="relative group">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                 <Input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value.slice(0, 100))}
                   placeholder="Password"
-                  className="pl-9 transition-shadow focus:shadow-md focus:shadow-primary/10"
+                  className="pl-9 pr-10 transition-shadow focus:shadow-md focus:shadow-primary/10"
                   maxLength={100}
                   disabled={loading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
+
+            <div className="flex items-center gap-2" style={{ animation: 'fade-up 0.5s ease-out 0.65s both' }}>
+              <Checkbox
+                id="remember"
+                checked={remember}
+                onCheckedChange={(v) => setRemember(v === true)}
+                disabled={loading}
+              />
+              <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-muted-foreground">
+                Ingatkan saya
+              </Label>
+            </div>
+
             {error && (
               <p className="text-sm text-destructive font-medium animate-fade-in">{error}</p>
             )}
@@ -123,10 +169,6 @@ const Login = () => {
               </Button>
             </div>
           </form>
-
-          <p className="text-xs text-muted-foreground text-center mt-6" style={{ animation: 'fade-up 0.5s ease-out 0.8s both' }}>
-            Default: admin / admin123
-          </p>
         </CardContent>
       </Card>
 
