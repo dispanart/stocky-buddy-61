@@ -223,7 +223,7 @@ const MasterData = () => {
                     <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">Belum ada data barang.</TableCell>
                   </TableRow>
                 ) : (
-                  items.map(item => {
+                  [...items].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)).map(item => {
                     const status = getStockStatus(item.stock, item.minStock);
                     const ItemIcon = getIconByName(item.icon || "Package");
                     return (

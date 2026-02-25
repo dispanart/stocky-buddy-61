@@ -65,7 +65,7 @@ const Dashboard = () => {
   }
 
   return (
-    <AppLayout onSearch={setSearchQuery}>
+    <AppLayout onSearch={setSearchQuery} showSearch>
       <div className="space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

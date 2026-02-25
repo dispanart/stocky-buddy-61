@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PackagePlus, Calculator, ArrowUpRight, Loader2 } from "lucide-react";
+import { PackagePlus, Calculator, Loader2 } from "lucide-react";
 import { setSmartUnit } from "@/lib/inventory-store";
 import { convertToBase, formatStock } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useItems, useTransactions, useAddTransaction } from "@/hooks/use-inventory";
 import { ItemCombobox } from "@/components/ItemCombobox";
+import { TransactionHistory } from "@/components/TransactionHistory";
 
 const StockIn = () => {
   const { toast } = useToast();
@@ -71,7 +72,7 @@ const StockIn = () => {
     }
   };
 
-  const recentIn = transactions.filter(t => t.type === 'in').slice(0, 5);
+  // recentIn handled by TransactionHistory component
 
   if (itemsLoading) {
     return (
@@ -159,34 +160,7 @@ const StockIn = () => {
             </Card>
           </div>
 
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base">Riwayat Masuk Terbaru</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentIn.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">Belum ada.</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentIn.map(tx => (
-                    <div key={tx.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                      <div className="rounded-full bg-safe/15 p-1.5 text-safe">
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{tx.itemName}</p>
-                        <p className="text-xs text-muted-foreground">+{tx.quantity} {tx.unit} • {tx.user}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(tx.timestamp).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}{' '}
-                          {new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TransactionHistory transactions={transactions} type="in" title="Riwayat Masuk" />
         </div>
         )}
       </div>
