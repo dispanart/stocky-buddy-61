@@ -7,6 +7,7 @@ export interface User {
   username: string;
   name: string;
   role: UserRole;
+  last_login?: string | null;
 }
 
 const SESSION_KEY = 'printstock_session';
@@ -52,6 +53,9 @@ export async function login(username: string, password: string): Promise<User | 
 
   if (error || !data) return null;
 
+  // Update last_login
+  await supabase.from('app_users').update({ last_login: new Date().toISOString() }).eq('id', data.id);
+
   const user: User = { id: data.id, username: data.username, name: data.name, role: data.role as UserRole };
   const session: Session = { ...user };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -83,13 +87,24 @@ export function getSession(): User | null {
 export async function getUsers(): Promise<User[]> {
   const { data, error } = await supabase
     .from('app_users')
-    .select('id, username, name, role')
+    .select('id, username, name, role, last_login')
     .order('name');
   if (error || !data) return [];
-  return data.map(u => ({ id: u.id, username: u.username, name: u.name, role: u.role as UserRole }));
+  return data.map(u => ({ id: u.id, username: u.username, name: u.name, role: u.role as UserRole, last_login: u.last_login }));
 }
 
 export async function deleteUser(id: string): Promise<boolean> {
   const { error } = await supabase.from('app_users').delete().eq('id', id);
+  return !error;
+}
+
+export async function updatePassword(id: string, newPassword: string): Promise<boolean> {
+  if (!newPassword || newPassword.length < 6) return false;
+  const { error } = await supabase.from('app_users').update({ password_hash: simpleHash(newPassword) }).eq('id', id);
+  return !error;
+}
+
+export async function updateRole(id: string, newRole: UserRole): Promise<boolean> {
+  const { error } = await supabase.from('app_users').update({ role: newRole }).eq('id', id);
   return !error;
 }

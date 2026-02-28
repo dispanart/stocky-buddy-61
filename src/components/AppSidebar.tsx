@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut, Users, Trash2 } from "lucide-react";
+import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut, Users, Trash2, KeyRound, Shield, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NavLink } from "@/components/NavLink";
@@ -10,12 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { addUser, getUsers, deleteUser, UserRole, User } from "@/lib/auth-store";
+import { addUser, getUsers, deleteUser, updatePassword, updateRole, UserRole, User } from "@/lib/auth-store";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarFooter,
 } from "@/components/ui/sidebar";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -25,11 +28,33 @@ const navItems = [
   { title: "Reports", url: "/reports", icon: FileText },
 ];
 
+function formatLastLogin(dateStr?: string | null): string {
+  if (!dateStr) return "Belum pernah login";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Online";
+  if (mins < 60) return `${mins} menit lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} hari lalu`;
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function isOnline(dateStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const diff = Date.now() - new Date(dateStr).getTime();
+  return diff < 5 * 60000; // 5 minutes
+}
+
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const isAdmin = user?.role === "admin";
+  const isSuperAdmin = user?.username === "admin";
   const [accountOpen, setAccountOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -41,6 +66,15 @@ export function AppSidebar() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("staff");
+
+  // Password change
+  const [passwordDialogUser, setPasswordDialogUser] = useState<User | null>(null);
+  const [newPwd, setNewPwd] = useState("");
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
   const fetchMembers = async () => {
     setLoadingMembers(true);
@@ -78,15 +112,43 @@ export function AppSidebar() {
     setRegistering(false);
   };
 
-  const handleDeleteUser = async (member: User) => {
-    if (member.id === user?.id) {
-      toast({ title: "Error", description: "Tidak bisa menghapus akun sendiri", variant: "destructive" });
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    const ok = await deleteUser(deleteTarget.id);
+    if (ok) {
+      toast({ title: "Berhasil", description: `User ${deleteTarget.name} berhasil dihapus` });
+      fetchMembers();
+    } else {
+      toast({ title: "Error", description: "Gagal menghapus user", variant: "destructive" });
+    }
+    setDeleteTarget(null);
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordDialogUser || !newPwd.trim()) return;
+    if (newPwd.length < 6) {
+      toast({ title: "Error", description: "Password minimal 6 karakter", variant: "destructive" });
       return;
     }
-    const { error } = await import("@/lib/auth-store").then(m => m.deleteUser(member.id)).then(() => ({ error: false })).catch(() => ({ error: true }));
-    if (!error) {
-      toast({ title: "Berhasil", description: `User ${member.name} berhasil dihapus` });
+    setChangingPwd(true);
+    const ok = await updatePassword(passwordDialogUser.id, newPwd);
+    if (ok) {
+      toast({ title: "Berhasil", description: `Password ${passwordDialogUser.name} berhasil diubah` });
+      setPasswordDialogUser(null);
+      setNewPwd("");
+    } else {
+      toast({ title: "Error", description: "Gagal mengubah password", variant: "destructive" });
+    }
+    setChangingPwd(false);
+  };
+
+  const handleChangeRole = async (member: User, newRole: UserRole) => {
+    const ok = await updateRole(member.id, newRole);
+    if (ok) {
+      toast({ title: "Berhasil", description: `Role ${member.name} diubah ke ${newRole}` });
       fetchMembers();
+    } else {
+      toast({ title: "Error", description: "Gagal mengubah role", variant: "destructive" });
     }
   };
 
@@ -159,11 +221,11 @@ export function AppSidebar() {
                       <Users className="h-4 w-4" /> Daftar Anggota
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-sm">
+                  <DialogContent className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Daftar Anggota</DialogTitle>
                     </DialogHeader>
-                    <div className="max-h-72 overflow-y-auto space-y-2">
+                    <div className="max-h-80 overflow-y-auto space-y-2">
                       {loadingMembers ? (
                         <div className="flex justify-center py-6">
                           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -172,26 +234,66 @@ export function AppSidebar() {
                         <p className="text-sm text-muted-foreground text-center py-4">Belum ada anggota</p>
                       ) : (
                         members.map((m) => (
-                          <div key={m.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                              <span className="text-xs font-semibold text-primary">{m.name[0]}</span>
+                          <div key={m.id} className="rounded-lg border border-border p-3 space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                                  <span className="text-xs font-semibold text-primary">{m.name[0]}</span>
+                                </div>
+                                {isOnline(m.last_login) && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-safe border-2 border-card" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{m.name}</p>
+                                <p className="text-xs text-muted-foreground">@{m.username}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {isOnline(m.last_login) ? (
+                                    <span className="text-safe font-medium">● Online</span>
+                                  ) : (
+                                    formatLastLogin(m.last_login)
+                                  )}
+                                </p>
+                              </div>
+
+                              {/* Role badge or selector */}
+                              {isSuperAdmin && m.id !== user?.id ? (
+                                <Select value={m.role} onValueChange={(v) => handleChangeRole(m, v as UserRole)}>
+                                  <SelectTrigger className="w-[90px] h-7 text-[10px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="staff">Staff</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge variant={m.role === "admin" ? "default" : "secondary"} className="text-[10px] capitalize">
+                                  {m.role}
+                                </Badge>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{m.name}</p>
-                              <p className="text-xs text-muted-foreground">@{m.username}</p>
-                            </div>
-                            <Badge variant={m.role === "admin" ? "default" : "secondary"} className="text-[10px] capitalize">
-                              {m.role}
-                            </Badge>
+
+                            {/* Action buttons */}
                             {m.id !== user?.id && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteUser(m)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              <div className="flex gap-1 pl-11">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary"
+                                  onClick={() => { setPasswordDialogUser(m); setNewPwd(""); setShowNewPwd(false); }}
+                                >
+                                  <KeyRound className="h-3 w-3" /> Ganti Password
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1 text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDeleteTarget(m)}
+                                >
+                                  <Trash2 className="h-3 w-3" /> Hapus
+                                </Button>
+                              </div>
                             )}
                           </div>
                         ))
@@ -249,6 +351,54 @@ export function AppSidebar() {
           </CollapsibleContent>
         </Collapsible>
       </SidebarFooter>
+
+      {/* Change Password Dialog */}
+      <Dialog open={!!passwordDialogUser} onOpenChange={(v) => !v && setPasswordDialogUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ganti Password - {passwordDialogUser?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Password Baru</Label>
+              <div className="relative">
+                <Input
+                  type={showNewPwd ? "text" : "password"}
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value.slice(0, 50))}
+                  placeholder="Min. 6 karakter"
+                  maxLength={50}
+                />
+                <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <Button onClick={handleChangePassword} className="w-full" disabled={changingPwd || newPwd.length < 6}>
+              {changingPwd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Simpan Password
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus <strong>{deleteTarget?.name}</strong> (@{deleteTarget?.username})? Tindakan ini tidak bisa dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sidebar>
   );
 }
