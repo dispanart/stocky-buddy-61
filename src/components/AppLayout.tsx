@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { getStockStatus, formatStock } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useItems } from "@/hooks/use-inventory";
+import { AIChatPopup } from "./AIChatPopup";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -103,6 +104,7 @@ export function AppLayout({ children, onSearch, showSearch = false }: AppLayoutP
           <main className="flex-1 p-6">{children}</main>
         </div>
       </div>
+      <AIChatPopup />
     </SidebarProvider>
   );
 }
