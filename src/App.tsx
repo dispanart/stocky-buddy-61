@@ -12,7 +12,7 @@ import StockOut from "./pages/StockOut";
 import Reports from "./pages/Reports";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-
+import BackupRestore from "./pages/BackupRestore";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -32,6 +32,7 @@ const AppRoutes = () => {
       <Route path="/stock-in" element={<ProtectedRoute><StockIn /></ProtectedRoute>} />
       <Route path="/stock-out" element={<ProtectedRoute><StockOut /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+      <Route path="/backup-restore" element={<ProtectedRoute><BackupRestore /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
