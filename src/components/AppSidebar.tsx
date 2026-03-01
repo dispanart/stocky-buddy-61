@@ -221,9 +221,10 @@ export function AppSidebar() {
                       <Users className="h-4 w-4" /> Daftar Anggota
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                   <DialogContent className="max-w-md" aria-describedby="members-desc">
                     <DialogHeader>
                       <DialogTitle>Daftar Anggota</DialogTitle>
+                      <p id="members-desc" className="text-sm text-muted-foreground">Daftar semua user terdaftar di aplikasi</p>
                     </DialogHeader>
                     <div className="max-h-80 overflow-y-auto space-y-2">
                       {loadingMembers ? (
@@ -308,9 +309,10 @@ export function AppSidebar() {
                       <UserPlus className="h-4 w-4" /> Daftarkan User Baru
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-sm">
+                   <DialogContent className="max-w-sm" aria-describedby="register-desc">
                     <DialogHeader>
                       <DialogTitle>Daftarkan User Baru</DialogTitle>
+                      <p id="register-desc" className="text-sm text-muted-foreground">Isi data untuk mendaftarkan user baru</p>
                     </DialogHeader>
                     <div className="space-y-3">
                       <div>
@@ -354,9 +356,10 @@ export function AppSidebar() {
 
       {/* Change Password Dialog */}
       <Dialog open={!!passwordDialogUser} onOpenChange={(v) => !v && setPasswordDialogUser(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm" aria-describedby="pwd-desc">
           <DialogHeader>
             <DialogTitle>Ganti Password - {passwordDialogUser?.name}</DialogTitle>
+            <p id="pwd-desc" className="text-sm text-muted-foreground">Masukkan password baru</p>
           </DialogHeader>
           <div className="space-y-3">
             <div>
