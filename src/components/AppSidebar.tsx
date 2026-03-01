@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut, Users, Trash2, KeyRound, Shield, Eye, EyeOff } from "lucide-react";
+import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut, Users, Trash2, KeyRound, Shield, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NavLink } from "@/components/NavLink";
@@ -20,7 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const navItems = [
+const baseNavItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Stock In", url: "/stock-in", icon: PackagePlus },
   { title: "Stock Out", url: "/stock-out", icon: PackageMinus },
@@ -72,6 +72,17 @@ export function AppSidebar() {
   const [newPwd, setNewPwd] = useState("");
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [changingPwd, setChangingPwd] = useState(false);
+
+  // Admin self password change
+  const [adminPwdOpen, setAdminPwdOpen] = useState(false);
+  const [adminOldPwd, setAdminOldPwd] = useState("");
+  const [adminNewPwd, setAdminNewPwd] = useState("");
+  const [showAdminPwd, setShowAdminPwd] = useState(false);
+  const [changingAdminPwd, setChangingAdminPwd] = useState(false);
+
+  const navItems = isAdmin
+    ? [...baseNavItems, { title: "Backup & Restore", url: "/backup-restore", icon: RefreshCw }]
+    : baseNavItems;
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -150,6 +161,25 @@ export function AppSidebar() {
     } else {
       toast({ title: "Error", description: "Gagal mengubah role", variant: "destructive" });
     }
+  };
+
+  const handleAdminChangePassword = async () => {
+    if (!user || !adminNewPwd.trim()) return;
+    if (adminNewPwd.length < 6) {
+      toast({ title: "Error", description: "Password minimal 6 karakter", variant: "destructive" });
+      return;
+    }
+    setChangingAdminPwd(true);
+    const ok = await updatePassword(user.id, adminNewPwd);
+    if (ok) {
+      toast({ title: "Berhasil", description: "Password admin berhasil diubah" });
+      setAdminPwdOpen(false);
+      setAdminOldPwd("");
+      setAdminNewPwd("");
+    } else {
+      toast({ title: "Error", description: "Gagal mengubah password", variant: "destructive" });
+    }
+    setChangingAdminPwd(false);
   };
 
   return (
@@ -345,6 +375,44 @@ export function AppSidebar() {
                   </DialogContent>
                 </Dialog>
               </>
+            )}
+
+            {/* Admin self password change */}
+            {isSuperAdmin && (
+              <Dialog open={adminPwdOpen} onOpenChange={setAdminPwdOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start gap-2 text-sm">
+                    <KeyRound className="h-4 w-4" /> Ganti Password Admin
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-sm" aria-describedby="admin-pwd-desc">
+                  <DialogHeader>
+                    <DialogTitle>Ganti Password Admin</DialogTitle>
+                    <p id="admin-pwd-desc" className="text-sm text-muted-foreground">Masukkan password baru untuk akun admin</p>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Password Baru</Label>
+                      <div className="relative">
+                        <Input
+                          type={showAdminPwd ? "text" : "password"}
+                          value={adminNewPwd}
+                          onChange={(e) => setAdminNewPwd(e.target.value.slice(0, 50))}
+                          placeholder="Min. 6 karakter"
+                          maxLength={50}
+                        />
+                        <button type="button" onClick={() => setShowAdminPwd(!showAdminPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                          {showAdminPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button onClick={handleAdminChangePassword} className="w-full" disabled={changingAdminPwd || adminNewPwd.length < 6}>
+                      {changingAdminPwd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Simpan Password
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
 
             <Button variant="ghost" className="w-full justify-start gap-2 text-sm text-low hover:text-low" onClick={logout}>

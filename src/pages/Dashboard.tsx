@@ -10,12 +10,14 @@ import { getStockStatus, formatStock, CATEGORIES } from "@/lib/types";
 import { getIconByName } from "@/components/IconPicker";
 import { useNavigate } from "react-router-dom";
 import { useItems, useTransactions } from "@/hooks/use-inventory";
+import { LowStockDialog } from "@/components/LowStockDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [lowStockOpen, setLowStockOpen] = useState(false);
 
   const { data: items = [], isLoading: itemsLoading } = useItems();
   const { data: transactions = [], isLoading: txLoading } = useTransactions();
@@ -81,7 +83,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-low to-low/80 text-low-foreground shadow-lg">
+          <Card className="border-0 bg-gradient-to-br from-low to-low/80 text-low-foreground shadow-lg cursor-pointer" onClick={() => setLowStockOpen(true)}>
             <CardContent className="flex items-center justify-between p-6">
               <div>
                 <p className="text-sm opacity-90">Low Stock</p>
@@ -218,6 +220,13 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      <LowStockDialog
+        open={lowStockOpen}
+        onOpenChange={setLowStockOpen}
+        items={items}
+        transactions={transactions}
+      />
     </AppLayout>
   );
 };
