@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,12 +13,14 @@ const REMEMBER_KEY = "printstock_remember";
 
 const Login = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY);
@@ -42,6 +46,7 @@ const Login = () => {
         } else {
           localStorage.removeItem(REMEMBER_KEY);
         }
+        setShowLoadingScreen(true);
       } else {
         setError("Username atau password salah");
       }
@@ -50,6 +55,10 @@ const Login = () => {
     }
     setLoading(false);
   };
+
+  if (showLoadingScreen) {
+    return <LoadingScreen onComplete={() => navigate("/")} />;
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
