@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getStockStatus, formatStock, CATEGORIES, Item } from "@/lib/types";
 import { format, startOfMonth, endOfMonth, isWithinInterval, isBefore, isAfter, addMonths } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { Package, ArrowDownUp, TrendingUp, AlertTriangle, FileDown, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Package, ArrowDownUp, TrendingUp, AlertTriangle, FileDown, FileSpreadsheet, Loader2, Search } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -48,10 +49,16 @@ const Reports = () => {
   const [monthFilter, setMonthFilter] = useState(() => format(new Date(), "yyyy-MM"));
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  // New filters
+  const [stockSearch, setStockSearch] = useState("");
+  const [stockStatusFilter, setStockStatusFilter] = useState("all");
+  const [txSearch, setTxSearch] = useState("");
+  const [txTypeFilter, setTxTypeFilter] = useState("all");
+
   // Generate months from Jan 2026 to current month
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
-    let d = new Date(2026, 0, 1); // Jan 2026
+    let d = new Date(2026, 0, 1);
     const now = new Date();
     while (!isAfter(d, now)) {
       opts.push({ value: format(d, "yyyy-MM"), label: format(d, "MMMM yyyy", { locale: idLocale }) });
@@ -60,18 +67,15 @@ const Reports = () => {
     return opts.reverse();
   }, []);
 
-  // Selected month boundaries
   const selectedRange = useMemo(() => {
     const [y, m] = monthFilter.split("-").map(Number);
     const start = startOfMonth(new Date(y, m - 1));
     const end = endOfMonth(new Date(y, m - 1));
     const now = new Date();
-    // If selected month is current month, end = now
     const effectiveEnd = isAfter(end, now) ? now : end;
     return { start, end: effectiveEnd, isCurrentMonth: isAfter(end, now) };
   }, [monthFilter]);
 
-  // Transactions within selected month
   const filteredTx = useMemo(() => {
     let txs = transactions.filter(tx => isWithinInterval(new Date(tx.timestamp), { start: selectedRange.start, end: selectedRange.end }));
     if (categoryFilter !== "all") {
@@ -83,18 +87,13 @@ const Reports = () => {
     return txs;
   }, [transactions, selectedRange, categoryFilter, items]);
 
-  // Stock snapshot: current stock adjusted by transactions after the selected period
-  // For current month: just current stock (filtered by category)
-  // For past months: current stock - transactions after end of that month (reverse calculate)
   const stockSnapshot = useMemo(() => {
     const now = new Date();
     const isCurrentMonth = isAfter(endOfMonth(selectedRange.start), now) || format(now, "yyyy-MM") === monthFilter;
 
     return items.map(item => {
       let snapshotStock = item.stock;
-
       if (!isCurrentMonth) {
-        // Subtract all transactions AFTER the selected month end to get historical stock
         const txAfter = transactions.filter(tx =>
           tx.itemId === item.id && isAfter(new Date(tx.timestamp), selectedRange.end)
         );
@@ -103,7 +102,6 @@ const Reports = () => {
           else snapshotStock += tx.baseQuantity;
         });
       }
-
       const status = getStockStatus(snapshotStock, item.minStock);
       return { ...item, stock: Math.max(0, snapshotStock), status, stockDisplay: formatStock(Math.max(0, snapshotStock), item.baseUnit, item.units) };
     })
@@ -113,6 +111,32 @@ const Reports = () => {
       return order[a.status] - order[b.status];
     });
   }, [items, transactions, selectedRange, monthFilter, categoryFilter]);
+
+  // Filtered stock with search & status filter
+  const displayedStock = useMemo(() => {
+    let result = stockSnapshot;
+    if (stockSearch) {
+      const q = stockSearch.toLowerCase();
+      result = result.filter(i => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q));
+    }
+    if (stockStatusFilter !== "all") {
+      result = result.filter(i => i.status === stockStatusFilter);
+    }
+    return result;
+  }, [stockSnapshot, stockSearch, stockStatusFilter]);
+
+  // Filtered transactions with search & type filter
+  const displayedTx = useMemo(() => {
+    let result = filteredTx;
+    if (txSearch) {
+      const q = txSearch.toLowerCase();
+      result = result.filter(tx => tx.itemName.toLowerCase().includes(q) || (tx.reference || "").toLowerCase().includes(q) || tx.user.toLowerCase().includes(q));
+    }
+    if (txTypeFilter !== "all") {
+      result = result.filter(tx => tx.type === txTypeFilter);
+    }
+    return result;
+  }, [filteredTx, txSearch, txTypeFilter]);
 
   const categoryData = useMemo(() => {
     const map: Record<string, { category: string; masuk: number; keluar: number }> = {};
@@ -141,14 +165,14 @@ const Reports = () => {
 
   const handleExportStockCSV = () => {
     const headers = ["Nama", "SKU", "Kategori", "Stok", "Min Stok", "Status"];
-    const rows = stockSnapshot.map(i => [i.name, i.sku, i.category, i.stockDisplay, `${i.minStock} ${i.baseUnit}`, STATUS_LABEL[i.status]]);
+    const rows = displayedStock.map(i => [i.name, i.sku, i.category, i.stockDisplay, `${i.minStock} ${i.baseUnit}`, STATUS_LABEL[i.status]]);
     downloadCSV(`stok_${monthFilter}.csv`, headers, rows);
     toast({ title: "Berhasil", description: "Data stok berhasil diexport ke CSV" });
   };
 
   const handleExportTxCSV = () => {
     const headers = ["Tanggal", "Barang", "Tipe", "Jumlah", "Referensi", "User"];
-    const rows = filteredTx.map(tx => [
+    const rows = displayedTx.map(tx => [
       format(new Date(tx.timestamp), "dd/MM/yyyy HH:mm"), tx.itemName,
       tx.type === "in" ? "Masuk" : "Keluar", `${tx.quantity} ${tx.unit}`, tx.reference || "-", tx.user,
     ]);
@@ -204,7 +228,7 @@ const Reports = () => {
 
           <TabsContent value="stock">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-lg">
                   Ringkasan Stok — {monthOptions.find(o => o.value === monthFilter)?.label}
                 </CardTitle>
@@ -213,67 +237,116 @@ const Reports = () => {
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportPDF("Ringkasan Stok")}><FileDown className="h-4 w-4" /> PDF</Button>
                 </div>
               </CardHeader>
-              <CardContent data-print-area>
-                {stockSnapshot.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Belum ada data barang.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Nama Barang</TableHead><TableHead>SKU</TableHead><TableHead>Kategori</TableHead><TableHead className="text-right">Stok</TableHead><TableHead className="text-right">Min. Stok</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {stockSnapshot.map(item => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell className="text-muted-foreground">{item.sku}</TableCell>
-                            <TableCell>{item.category}</TableCell>
-                            <TableCell className="text-right">{item.stockDisplay}</TableCell>
-                            <TableCell className="text-right">{item.minStock} {item.baseUnit}</TableCell>
-                            <TableCell><Badge variant="secondary" className={STATUS_STYLES[item.status]}>{STATUS_LABEL[item.status]}</Badge></TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+              <CardContent>
+                {/* Stock Filters */}
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari nama atau SKU..."
+                      value={stockSearch}
+                      onChange={(e) => setStockSearch(e.target.value)}
+                      className="pl-9 h-9 text-sm"
+                    />
                   </div>
-                )}
+                  <Select value={stockStatusFilter} onValueChange={setStockStatusFilter}>
+                    <SelectTrigger className="w-[140px] h-9 text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Status</SelectItem>
+                      <SelectItem value="safe">Aman</SelectItem>
+                      <SelectItem value="mid">Menipis</SelectItem>
+                      <SelectItem value="low">Kritis</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div data-print-area>
+                  {displayedStock.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      {stockSnapshot.length === 0 ? "Belum ada data barang." : "Tidak ada hasil yang cocok."}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow><TableHead>Nama Barang</TableHead><TableHead>SKU</TableHead><TableHead>Kategori</TableHead><TableHead className="text-right">Stok</TableHead><TableHead className="text-right">Min. Stok</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {displayedStock.map(item => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.name}</TableCell>
+                              <TableCell className="text-muted-foreground">{item.sku}</TableCell>
+                              <TableCell>{item.category}</TableCell>
+                              <TableCell className="text-right">{item.stockDisplay}</TableCell>
+                              <TableCell className="text-right">{item.minStock} {item.baseUnit}</TableCell>
+                              <TableCell><Badge variant="secondary" className={STATUS_STYLES[item.status]}>{STATUS_LABEL[item.status]}</Badge></TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="transactions">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-lg">Riwayat Transaksi</CardTitle>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportTxCSV}><FileSpreadsheet className="h-4 w-4" /> Excel/CSV</Button>
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportPDF("Riwayat Transaksi")}><FileDown className="h-4 w-4" /> PDF</Button>
                 </div>
               </CardHeader>
-              <CardContent data-print-area>
-                {filteredTx.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">Tidak ada transaksi di bulan ini.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Barang</TableHead><TableHead>Tipe</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead>Referensi</TableHead><TableHead>User</TableHead></TableRow></TableHeader>
-                      <TableBody>
-                        {filteredTx.map(tx => (
-                          <TableRow key={tx.id}>
-                            <TableCell className="text-muted-foreground whitespace-nowrap">{format(new Date(tx.timestamp), "dd MMM yyyy HH:mm", { locale: idLocale })}</TableCell>
-                            <TableCell className="font-medium">{tx.itemName}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className={tx.type === "in" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}>
-                                {tx.type === "in" ? "Masuk" : "Keluar"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">{tx.quantity} {tx.unit}</TableCell>
-                            <TableCell className="text-muted-foreground">{tx.reference || "-"}</TableCell>
-                            <TableCell className="text-muted-foreground">{tx.user}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+              <CardContent>
+                {/* Transaction Filters */}
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari barang, referensi, atau user..."
+                      value={txSearch}
+                      onChange={(e) => setTxSearch(e.target.value)}
+                      className="pl-9 h-9 text-sm"
+                    />
                   </div>
-                )}
+                  <Select value={txTypeFilter} onValueChange={setTxTypeFilter}>
+                    <SelectTrigger className="w-[140px] h-9 text-sm"><SelectValue placeholder="Tipe" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Tipe</SelectItem>
+                      <SelectItem value="in">Masuk</SelectItem>
+                      <SelectItem value="out">Keluar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div data-print-area>
+                  {displayedTx.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      {filteredTx.length === 0 ? "Tidak ada transaksi di bulan ini." : "Tidak ada hasil yang cocok."}
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Barang</TableHead><TableHead>Tipe</TableHead><TableHead className="text-right">Jumlah</TableHead><TableHead>Referensi</TableHead><TableHead>User</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {displayedTx.map(tx => (
+                            <TableRow key={tx.id}>
+                              <TableCell className="text-muted-foreground whitespace-nowrap">{format(new Date(tx.timestamp), "dd MMM yyyy HH:mm", { locale: idLocale })}</TableCell>
+                              <TableCell className="font-medium">{tx.itemName}</TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className={tx.type === "in" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}>
+                                  {tx.type === "in" ? "Masuk" : "Keluar"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">{tx.quantity} {tx.unit}</TableCell>
+                              <TableCell className="text-muted-foreground">{tx.reference || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground">{tx.user}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { getUsers, deleteUser } from "@/lib/auth-store";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  CloudDownload, CloudUpload, Plus, Search, Trash2, AlertTriangle, Loader2, FileText, Clock, HardDrive, CircleCheck, Upload
+  CloudDownload, CloudUpload, Plus, Search, Trash2, AlertTriangle, Loader2, FileText, Clock, HardDrive, CircleCheck, Upload, CircleX, Wifi, WifiOff
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -39,6 +39,8 @@ function saveBackupHistory(entries: BackupEntry[]) {
   localStorage.setItem(BACKUP_HISTORY_KEY, JSON.stringify(entries));
 }
 
+type SystemStatus = "checking" | "healthy" | "error";
+
 const BackupRestore = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -49,11 +51,38 @@ const BackupRestore = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [autoBackup, setAutoBackup] = useState(false);
 
+  // System health
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>("checking");
+  const [dbLatency, setDbLatency] = useState<number | null>(null);
+
   // Clear dialogs
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false);
   const [clearDatabaseOpen, setClearDatabaseOpen] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [clearingDatabase, setClearingDatabase] = useState(false);
+
+  // Check system health on mount
+  useEffect(() => {
+    checkSystemHealth();
+  }, []);
+
+  const checkSystemHealth = async () => {
+    setSystemStatus("checking");
+    try {
+      const start = performance.now();
+      const { error } = await supabase.from("app_users").select("id").limit(1);
+      const latency = Math.round(performance.now() - start);
+      setDbLatency(latency);
+      if (error) {
+        setSystemStatus("error");
+      } else {
+        setSystemStatus("healthy");
+      }
+    } catch {
+      setSystemStatus("error");
+      setDbLatency(null);
+    }
+  };
 
   useEffect(() => {
     setBackupHistory(getBackupHistory());
@@ -63,7 +92,6 @@ const BackupRestore = () => {
   const generateBackup = async () => {
     setGenerating(true);
     try {
-      // Fetch all data
       const [itemsRes, txRes, usersRes] = await Promise.all([
         supabase.from("items").select("*"),
         supabase.from("transactions").select("*").order("created_at", { ascending: false }),
@@ -85,7 +113,6 @@ const BackupRestore = () => {
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
       const fileName = `backup_printstock_v2_${dateStr}.json`;
 
-      // Download
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -93,7 +120,6 @@ const BackupRestore = () => {
       a.click();
       URL.revokeObjectURL(url);
 
-      // Save to history
       const sizeKB = (blob.size / 1024).toFixed(1);
       const entry: BackupEntry = {
         id: crypto.randomUUID(),
@@ -126,25 +152,18 @@ const BackupRestore = () => {
         throw new Error("Invalid backup format");
       }
 
-      // Clear existing data first
       await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
-      // Restore items
       if (data.items.length > 0) {
         await supabase.from("items").insert(data.items);
       }
-
-      // Restore transactions
       if (data.transactions.length > 0) {
         await supabase.from("transactions").insert(data.transactions);
       }
-
-      // Restore users (except existing admin)
       if (data.users && data.users.length > 0) {
         const nonAdmin = data.users.filter((u: any) => u.username !== "admin");
         if (nonAdmin.length > 0) {
-          // Delete non-admin users first
           await supabase.from("app_users").delete().neq("username", "admin");
           await supabase.from("app_users").insert(nonAdmin);
         }
@@ -176,11 +195,8 @@ const BackupRestore = () => {
   const handleClearDatabase = async () => {
     setClearingDatabase(true);
     try {
-      // Delete all transactions
       await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      // Delete all items
       await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      // Delete all users except admin
       await supabase.from("app_users").delete().neq("username", "admin");
 
       queryClient.invalidateQueries({ queryKey: ["items"] });
@@ -208,6 +224,29 @@ const BackupRestore = () => {
     b.fileName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const statusBadge = () => {
+    if (systemStatus === "checking") {
+      return (
+        <Badge variant="outline" className="border-muted-foreground/30 bg-muted/10 text-muted-foreground gap-1.5 px-3 py-1">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking...
+        </Badge>
+      );
+    }
+    if (systemStatus === "healthy") {
+      return (
+        <Badge variant="outline" className="border-safe/30 bg-safe/10 text-safe gap-1.5 px-3 py-1 cursor-pointer" onClick={checkSystemHealth}>
+          <CircleCheck className="h-3.5 w-3.5" /> System Healthy
+          {dbLatency !== null && <span className="text-[10px] opacity-70">({dbLatency}ms)</span>}
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive gap-1.5 px-3 py-1 cursor-pointer" onClick={checkSystemHealth}>
+        <CircleX className="h-3.5 w-3.5" /> Connection Error
+      </Badge>
+    );
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -219,14 +258,11 @@ const BackupRestore = () => {
               Kelola keamanan data dengan backup dan pemulihan database.
             </p>
           </div>
-          <Badge variant="outline" className="border-safe/30 bg-safe/10 text-safe gap-1.5 px-3 py-1">
-            <CircleCheck className="h-3.5 w-3.5" /> System Healthy
-          </Badge>
+          {statusBadge()}
         </div>
 
         {/* Backup & Restore Cards */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Create Backup */}
           <Card className="shadow-md">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -260,7 +296,6 @@ const BackupRestore = () => {
             </CardContent>
           </Card>
 
-          {/* Restore */}
           <Card className="shadow-md">
             <CardHeader className="pb-3">
               <div className="rounded-xl bg-primary/10 p-3 w-fit">

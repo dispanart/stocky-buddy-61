@@ -5,11 +5,12 @@ import { Bell, Search, PackageMinus, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getStockStatus, formatStock } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useItems } from "@/hooks/use-inventory";
 import { AIChatPopup } from "./AIChatPopup";
+import { PageTransition } from "./PageTransition";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -101,7 +102,9 @@ export function AppLayout({ children, onSearch, showSearch = false }: AppLayoutP
             </div>
           </header>
 
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 p-6">
+            <PageTransition>{children}</PageTransition>
+          </main>
         </div>
       </div>
       <AIChatPopup />
