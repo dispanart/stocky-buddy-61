@@ -7,34 +7,40 @@ interface PageTransitionProps {
 
 export function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
-  const [displayChildren, setDisplayChildren] = useState(children);
-  const [transitionStage, setTransitionStage] = useState<"enter" | "exit">("enter");
+  const [isVisible, setIsVisible] = useState(false);
+  const [currentChildren, setCurrentChildren] = useState(children);
+  const [currentPath, setCurrentPath] = useState(location.pathname);
 
   useEffect(() => {
-    if (children !== displayChildren) {
-      setTransitionStage("exit");
+    if (location.pathname !== currentPath) {
+      // Exit: fade out
+      setIsVisible(false);
       const timeout = setTimeout(() => {
-        setDisplayChildren(children);
-        setTransitionStage("enter");
+        setCurrentChildren(children);
+        setCurrentPath(location.pathname);
+        // Enter: fade in
+        requestAnimationFrame(() => setIsVisible(true));
       }, 150);
       return () => clearTimeout(timeout);
+    } else {
+      setCurrentChildren(children);
     }
-  }, [children]);
+  }, [location.pathname, children]);
 
-  // Reset on location change
+  // Initial mount fade in
   useEffect(() => {
-    setTransitionStage("enter");
-  }, [location.pathname]);
+    requestAnimationFrame(() => setIsVisible(true));
+  }, []);
 
   return (
     <div
-      className={`transition-all duration-200 ease-out ${
-        transitionStage === "enter"
+      className={`transition-all duration-300 ease-out ${
+        isVisible
           ? "opacity-100 translate-y-0"
-          : "opacity-0 translate-y-2"
+          : "opacity-0 translate-y-3"
       }`}
     >
-      {displayChildren}
+      {currentChildren}
     </div>
   );
 }
