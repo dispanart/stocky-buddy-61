@@ -107,8 +107,9 @@ const Reports = () => {
     })
     .filter(item => categoryFilter === "all" || item.category === categoryFilter)
     .sort((a, b) => {
-      const order = { low: 0, mid: 1, safe: 2 };
-      return order[a.status] - order[b.status];
+      const catCompare = a.category.localeCompare(b.category, "id");
+      if (catCompare !== 0) return catCompare;
+      return a.name.localeCompare(b.name, "id");
     });
   }, [items, transactions, selectedRange, monthFilter, categoryFilter]);
 
@@ -267,18 +268,33 @@ const Reports = () => {
                   ) : (
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader><TableRow><TableHead>Nama Barang</TableHead><TableHead>SKU</TableHead><TableHead>Kategori</TableHead><TableHead className="text-right">Stok</TableHead><TableHead className="text-right">Min. Stok</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Nama Barang</TableHead><TableHead>SKU</TableHead><TableHead className="text-right">Stok</TableHead><TableHead className="text-right">Min. Stok</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
                         <TableBody>
-                          {displayedStock.map(item => (
-                            <TableRow key={item.id}>
-                              <TableCell className="font-medium">{item.name}</TableCell>
-                              <TableCell className="text-muted-foreground">{item.sku}</TableCell>
-                              <TableCell>{item.category}</TableCell>
-                              <TableCell className="text-right">{item.stockDisplay}</TableCell>
-                              <TableCell className="text-right">{item.minStock} {item.baseUnit}</TableCell>
-                              <TableCell><Badge variant="secondary" className={STATUS_STYLES[item.status]}>{STATUS_LABEL[item.status]}</Badge></TableCell>
-                            </TableRow>
-                          ))}
+                          {(() => {
+                            let lastCategory = "";
+                            return displayedStock.map(item => {
+                              const showHeader = item.category !== lastCategory;
+                              lastCategory = item.category;
+                              return (
+                                <>
+                                  {showHeader && (
+                                    <TableRow key={`cat-${item.category}`} className="bg-muted/50 hover:bg-muted/50">
+                                      <TableCell colSpan={5} className="font-semibold text-sm text-foreground py-2">
+                                        {item.category}
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                  <TableRow key={item.id}>
+                                    <TableCell className="font-medium pl-6">{item.name}</TableCell>
+                                    <TableCell className="text-muted-foreground">{item.sku}</TableCell>
+                                    <TableCell className="text-right">{item.stockDisplay}</TableCell>
+                                    <TableCell className="text-right">{item.minStock} {item.baseUnit}</TableCell>
+                                    <TableCell><Badge variant="secondary" className={STATUS_STYLES[item.status]}>{STATUS_LABEL[item.status]}</Badge></TableCell>
+                                  </TableRow>
+                                </>
+                              );
+                            });
+                          })()}
                         </TableBody>
                       </Table>
                     </div>
