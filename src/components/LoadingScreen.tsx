@@ -19,17 +19,17 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [tip] = useState(() => tips[Math.floor(Math.random() * tips.length)]);
 
   useEffect(() => {
-    const duration = 2200;
-    const interval = 30;
+    const duration = 3500;
+    const interval = 40;
     const step = 100 / (duration / interval);
     let current = 0;
 
     const timer = setInterval(() => {
-      current += step + Math.random() * 1.5;
+      current += step + Math.random() * 0.8;
       if (current >= 100) {
         current = 100;
         clearInterval(timer);
-        setTimeout(onComplete, 400);
+        setTimeout(onComplete, 500);
       }
       setProgress(Math.min(current, 100));
     }, interval);

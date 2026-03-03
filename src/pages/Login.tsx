@@ -26,9 +26,8 @@ const Login = () => {
     const saved = localStorage.getItem(REMEMBER_KEY);
     if (saved) {
       try {
-        const { username: u, password: p } = JSON.parse(saved);
+        const { username: u } = JSON.parse(saved);
         setUsername(u || "");
-        setPassword(p || "");
         setRemember(true);
       } catch { /* ignore */ }
     }
@@ -42,7 +41,7 @@ const Login = () => {
       const ok = await login(username, password);
       if (ok) {
         if (remember) {
-          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username, password }));
+          localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username }));
         } else {
           localStorage.removeItem(REMEMBER_KEY);
         }
