@@ -18,7 +18,16 @@ interface Session {
   role: UserRole;
 }
 
-function simpleHash(str: string): string {
+async function secureHash(str: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str + '_printstock_salt_v2');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Legacy hash for backward compatibility during migration
+function legacyHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
@@ -31,9 +40,11 @@ function simpleHash(str: string): string {
 async function seedDefaultUsers() {
   const { count } = await supabase.from('app_users').select('*', { count: 'exact', head: true });
   if (count === 0 || count === null) {
+    const adminHash = await secureHash('admin123');
+    const staffHash = await secureHash('staff123');
     await supabase.from('app_users').insert([
-      { username: 'admin', name: 'Admin', role: 'admin', password_hash: simpleHash('admin123') },
-      { username: 'staff', name: 'Staff', role: 'staff', password_hash: simpleHash('staff123') },
+      { username: 'admin', name: 'Admin', role: 'admin', password_hash: adminHash },
+      { username: 'staff', name: 'Staff', role: 'staff', password_hash: staffHash },
     ]);
   }
 }
@@ -43,13 +54,32 @@ export async function login(username: string, password: string): Promise<User | 
 
   await seedDefaultUsers();
 
-  const hash = simpleHash(password);
-  const { data, error } = await supabase
+  const hash = await secureHash(password);
+  const legHash = legacyHash(password);
+  
+  // Try secure hash first, then fallback to legacy
+  let { data, error } = await supabase
     .from('app_users')
     .select('id, username, name, role')
     .eq('username', username)
     .eq('password_hash', hash)
     .single();
+
+  if (error || !data) {
+    // Try legacy hash for migration
+    const legResult = await supabase
+      .from('app_users')
+      .select('id, username, name, role')
+      .eq('username', username)
+      .eq('password_hash', legHash)
+      .single();
+    
+    if (legResult.error || !legResult.data) return null;
+    data = legResult.data;
+    
+    // Migrate to secure hash
+    await supabase.from('app_users').update({ password_hash: hash }).eq('id', data.id);
+  }
 
   if (error || !data) return null;
 
@@ -64,11 +94,12 @@ export async function login(username: string, password: string): Promise<User | 
 
 export async function addUser(username: string, name: string, password: string, role: UserRole): Promise<boolean> {
   if (!username || !name || !password) return false;
+  const hash = await secureHash(password);
   const { error } = await supabase.from('app_users').insert({
     username,
     name,
     role,
-    password_hash: simpleHash(password),
+    password_hash: hash,
   });
   return !error;
 }
@@ -100,7 +131,8 @@ export async function deleteUser(id: string): Promise<boolean> {
 
 export async function updatePassword(id: string, newPassword: string): Promise<boolean> {
   if (!newPassword || newPassword.length < 6) return false;
-  const { error } = await supabase.from('app_users').update({ password_hash: simpleHash(newPassword) }).eq('id', id);
+  const hash = await secureHash(newPassword);
+  const { error } = await supabase.from('app_users').update({ password_hash: hash }).eq('id', id);
   return !error;
 }
 
