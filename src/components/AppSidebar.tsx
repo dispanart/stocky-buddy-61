@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { LayoutDashboard, PackagePlus, PackageMinus, Database, FileText, Moon, Sun, UserPlus, ChevronUp, Loader2, LogOut, Users, Trash2, KeyRound, Shield, Eye, EyeOff, RefreshCw } from "lucide-react";
+import logoImg from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NavLink } from "@/components/NavLink";
@@ -186,12 +187,12 @@ export function AppSidebar() {
     <Sidebar className="border-r border-sidebar-border">
       <div className="p-6 pb-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">P</span>
+          <div className="h-10 w-10 rounded-lg overflow-hidden shadow-sm">
+            <img src={logoImg} alt="PrintStock" className="w-full h-full object-cover" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">PrintStock</h1>
-            <p className="text-xs text-muted-foreground">v2.0</p>
+            <p className="text-xs text-muted-foreground">by @dispanart_</p>
           </div>
         </div>
       </div>
