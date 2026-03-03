@@ -19,13 +19,13 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [tip] = useState(() => tips[Math.floor(Math.random() * tips.length)]);
 
   useEffect(() => {
-    const duration = 3500;
-    const interval = 40;
+    const duration = 10000;
+    const interval = 50;
     const step = 100 / (duration / interval);
     let current = 0;
 
     const timer = setInterval(() => {
-      current += step + Math.random() * 0.8;
+      current += step + Math.random() * 0.3;
       if (current >= 100) {
         current = 100;
         clearInterval(timer);
