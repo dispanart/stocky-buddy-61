@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import mascotImg from "@/assets/mascot.png";
+import logoImg from "@/assets/logo.png";
 
 const tips = [
   "Tips: Gunakan fitur Quick Stock Out untuk mempercepat proses pengeluaran barang.",
@@ -62,10 +63,14 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
         {/* Text */}
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-foreground">
-            Sedang memproses data inventaris Anda…
-          </h2>
-          <p className="text-muted-foreground">Tunggu sebentar ya.</p>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <div className="h-8 w-8 rounded-lg overflow-hidden shadow-sm">
+              <img src={logoImg} alt="PrintStock" className="w-full h-full object-cover" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">PrintStock</h2>
+          </div>
+          <p className="text-muted-foreground text-sm">Sedang memproses data inventaris Anda…</p>
+          <p className="text-xs text-muted-foreground/50">by @dispanart_</p>
         </div>
 
         {/* Progress bar */}

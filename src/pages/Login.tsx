@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import logoImg from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -98,14 +99,15 @@ const Login = () => {
       >
         <CardHeader className="text-center space-y-4 pb-2">
           <div
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/25"
+            className="mx-auto h-16 w-16 rounded-2xl shadow-lg shadow-primary/25 overflow-hidden"
             style={{ animation: 'logo-bounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both' }}
           >
-            <span className="text-2xl font-bold text-primary-foreground">P</span>
+            <img src={logoImg} alt="PrintStock" className="w-full h-full object-cover" />
           </div>
           <div style={{ animation: 'fade-up 0.5s ease-out 0.4s both' }}>
             <CardTitle className="text-2xl font-bold">PrintStock v2.0</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">Masuk ke sistem inventaris</p>
+            <p className="text-xs text-muted-foreground/60 mt-0.5">by @dispanart_</p>
           </div>
         </CardHeader>
         <CardContent>
