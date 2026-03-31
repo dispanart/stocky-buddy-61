@@ -182,7 +182,7 @@ const BackupRestore = () => {
   const handleClearHistory = async () => {
     setClearingHistory(true);
     try {
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({ title: "Berhasil", description: "Semua log aktivitas berhasil dihapus" });
     } catch {
