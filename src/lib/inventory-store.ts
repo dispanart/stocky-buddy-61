@@ -46,11 +46,11 @@ export async function addItem(item: Omit<Item, 'id' | 'createdAt'>): Promise<Ite
     sku: item.sku,
     category: item.category,
     base_unit: item.baseUnit,
-    units: item.units,
+    units: item.units as any,
     stock: item.stock,
     min_stock: item.minStock,
     icon: item.icon || 'Package',
-  }).select().single();
+  } as any).select().single();
   if (error) throw error;
   return mapItem(data);
 }
