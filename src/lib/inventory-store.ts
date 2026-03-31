@@ -75,7 +75,7 @@ export async function deleteItem(id: string): Promise<void> {
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
-  const { data, error } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+  const { data, error } = await (supabase as any).from('transactions').select('*').order('created_at', { ascending: false });
   if (error) throw error;
   return (data || []).map(mapTransaction);
 }
