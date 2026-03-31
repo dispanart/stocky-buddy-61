@@ -41,16 +41,16 @@ export async function getItems(): Promise<Item[]> {
 }
 
 export async function addItem(item: Omit<Item, 'id' | 'createdAt'>): Promise<Item> {
-  const { data, error } = await supabase.from('items').insert({
+  const { data, error } = await (supabase as any).from('items').insert({
     name: item.name,
     sku: item.sku,
     category: item.category,
     base_unit: item.baseUnit,
-    units: item.units as any,
+    units: item.units,
     stock: item.stock,
     min_stock: item.minStock,
     icon: item.icon || 'Package',
-  } as any).select().single();
+  }).select().single();
   if (error) throw error;
   return mapItem(data);
 }
