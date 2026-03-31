@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Item, Transaction } from './types';
 
 const SMART_UNITS_KEY = 'printstock_smart_units';
