@@ -152,14 +152,14 @@ const BackupRestore = () => {
         throw new Error("Invalid backup format");
       }
 
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
       if (data.items.length > 0) {
-        await supabase.from("items").insert(data.items);
+        await (supabase as any).from("items").insert(data.items);
       }
       if (data.transactions.length > 0) {
-        await supabase.from("transactions").insert(data.transactions);
+        await (supabase as any).from("transactions").insert(data.transactions);
       }
       if (data.users && data.users.length > 0) {
         const nonAdmin = data.users.filter((u: any) => u.username !== "admin");
