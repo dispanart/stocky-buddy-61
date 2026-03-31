@@ -195,8 +195,8 @@ const BackupRestore = () => {
   const handleClearDatabase = async () => {
     setClearingDatabase(true);
     try {
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       await supabase.from("app_users").delete().neq("username", "admin");
 
       queryClient.invalidateQueries({ queryKey: ["items"] });
