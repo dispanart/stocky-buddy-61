@@ -65,7 +65,7 @@ export async function updateItem(id: string, updates: Partial<Item>): Promise<vo
   if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
   if (updates.minStock !== undefined) dbUpdates.min_stock = updates.minStock;
   if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
-  const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
+  const { error } = await (supabase as any).from('items').update(dbUpdates).eq('id', id);
   if (error) throw error;
 }
 
