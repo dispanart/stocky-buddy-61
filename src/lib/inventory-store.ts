@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Item, Transaction } from './types';
 
 const SMART_UNITS_KEY = 'printstock_smart_units';
@@ -35,13 +35,13 @@ function mapTransaction(row: any): Transaction {
 }
 
 export async function getItems(): Promise<Item[]> {
-  const { data, error } = await supabase.from('items').select('*').order('created_at');
+  const { data, error } = await (supabase as any).from('items').select('*').order('created_at');
   if (error) throw error;
   return (data || []).map(mapItem);
 }
 
 export async function addItem(item: Omit<Item, 'id' | 'createdAt'>): Promise<Item> {
-  const { data, error } = await supabase.from('items').insert({
+  const { data, error } = await (supabase as any).from('items').insert({
     name: item.name,
     sku: item.sku,
     category: item.category,
@@ -65,23 +65,23 @@ export async function updateItem(id: string, updates: Partial<Item>): Promise<vo
   if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
   if (updates.minStock !== undefined) dbUpdates.min_stock = updates.minStock;
   if (updates.icon !== undefined) dbUpdates.icon = updates.icon;
-  const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
+  const { error } = await (supabase as any).from('items').update(dbUpdates).eq('id', id);
   if (error) throw error;
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  const { error } = await supabase.from('items').delete().eq('id', id);
+  const { error } = await (supabase as any).from('items').delete().eq('id', id);
   if (error) throw error;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
-  const { data, error } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+  const { data, error } = await (supabase as any).from('transactions').select('*').order('created_at', { ascending: false });
   if (error) throw error;
   return (data || []).map(mapTransaction);
 }
 
 export async function addTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>): Promise<Transaction> {
-  const { data, error } = await supabase.from('transactions').insert({
+  const { data, error } = await (supabase as any).from('transactions').insert({
     item_id: tx.itemId,
     item_name: tx.itemName,
     type: tx.type,
@@ -95,12 +95,12 @@ export async function addTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>):
   if (error) throw error;
 
   // Update item stock
-  const { data: item } = await supabase.from('items').select('stock').eq('id', tx.itemId).single();
+  const { data: item } = await (supabase as any).from('items').select('stock').eq('id', tx.itemId).single();
   if (item) {
     const newStock = tx.type === 'in'
       ? item.stock + tx.baseQuantity
       : Math.max(0, item.stock - tx.baseQuantity);
-    await supabase.from('items').update({ stock: newStock }).eq('id', tx.itemId);
+    await (supabase as any).from('items').update({ stock: newStock }).eq('id', tx.itemId);
   }
 
   return mapTransaction(data);

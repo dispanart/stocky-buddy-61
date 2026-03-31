@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { getUsers, deleteUser } from "@/lib/auth-store";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -93,8 +93,8 @@ const BackupRestore = () => {
     setGenerating(true);
     try {
       const [itemsRes, txRes, usersRes] = await Promise.all([
-        supabase.from("items").select("*"),
-        supabase.from("transactions").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("items").select("*"),
+        (supabase as any).from("transactions").select("*").order("created_at", { ascending: false }),
         supabase.from("app_users").select("id, username, name, role, password_hash, last_login"),
       ]);
 
@@ -152,14 +152,14 @@ const BackupRestore = () => {
         throw new Error("Invalid backup format");
       }
 
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
       if (data.items.length > 0) {
-        await supabase.from("items").insert(data.items);
+        await (supabase as any).from("items").insert(data.items);
       }
       if (data.transactions.length > 0) {
-        await supabase.from("transactions").insert(data.transactions);
+        await (supabase as any).from("transactions").insert(data.transactions);
       }
       if (data.users && data.users.length > 0) {
         const nonAdmin = data.users.filter((u: any) => u.username !== "admin");
@@ -182,7 +182,7 @@ const BackupRestore = () => {
   const handleClearHistory = async () => {
     setClearingHistory(true);
     try {
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast({ title: "Berhasil", description: "Semua log aktivitas berhasil dihapus" });
     } catch {
@@ -195,8 +195,8 @@ const BackupRestore = () => {
   const handleClearDatabase = async () => {
     setClearingDatabase(true);
     try {
-      await supabase.from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await supabase.from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("transactions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await (supabase as any).from("items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
       await supabase.from("app_users").delete().neq("username", "admin");
 
       queryClient.invalidateQueries({ queryKey: ["items"] });

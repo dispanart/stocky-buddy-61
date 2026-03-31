@@ -44,6 +44,95 @@ export type Database = {
         }
         Relationships: []
       }
+      items: {
+        Row: {
+          base_unit: string
+          category: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          min_stock: number
+          name: string
+          sku: string | null
+          stock: number
+          units: Json | null
+        }
+        Insert: {
+          base_unit?: string
+          category?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          min_stock?: number
+          name: string
+          sku?: string | null
+          stock?: number
+          units?: Json | null
+        }
+        Update: {
+          base_unit?: string
+          category?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          min_stock?: number
+          name?: string
+          sku?: string | null
+          stock?: number
+          units?: Json | null
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          base_quantity: number
+          created_at: string | null
+          id: string
+          item_id: string | null
+          item_name: string
+          note: string | null
+          performed_by: string | null
+          quantity: number
+          reference: string | null
+          type: string
+          unit: string | null
+        }
+        Insert: {
+          base_quantity?: number
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          item_name: string
+          note?: string | null
+          performed_by?: string | null
+          quantity?: number
+          reference?: string | null
+          type: string
+          unit?: string | null
+        }
+        Update: {
+          base_quantity?: number
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          item_name?: string
+          note?: string | null
+          performed_by?: string | null
+          quantity?: number
+          reference?: string | null
+          type?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
