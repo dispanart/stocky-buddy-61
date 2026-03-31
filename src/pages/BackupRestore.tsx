@@ -93,8 +93,8 @@ const BackupRestore = () => {
     setGenerating(true);
     try {
       const [itemsRes, txRes, usersRes] = await Promise.all([
-        supabase.from("items").select("*"),
-        supabase.from("transactions").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("items").select("*"),
+        (supabase as any).from("transactions").select("*").order("created_at", { ascending: false }),
         supabase.from("app_users").select("id, username, name, role, password_hash, last_login"),
       ]);
 
