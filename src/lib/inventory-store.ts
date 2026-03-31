@@ -95,12 +95,12 @@ export async function addTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>):
   if (error) throw error;
 
   // Update item stock
-  const { data: item } = await supabase.from('items').select('stock').eq('id', tx.itemId).single();
+  const { data: item } = await (supabase as any).from('items').select('stock').eq('id', tx.itemId).single();
   if (item) {
     const newStock = tx.type === 'in'
       ? item.stock + tx.baseQuantity
       : Math.max(0, item.stock - tx.baseQuantity);
-    await supabase.from('items').update({ stock: newStock }).eq('id', tx.itemId);
+    await (supabase as any).from('items').update({ stock: newStock }).eq('id', tx.itemId);
   }
 
   return mapTransaction(data);
