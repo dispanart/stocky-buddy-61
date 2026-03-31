@@ -81,7 +81,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 export async function addTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>): Promise<Transaction> {
-  const { data, error } = await supabase.from('transactions').insert({
+  const { data, error } = await (supabase as any).from('transactions').insert({
     item_id: tx.itemId,
     item_name: tx.itemName,
     type: tx.type,
