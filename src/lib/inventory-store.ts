@@ -35,7 +35,7 @@ function mapTransaction(row: any): Transaction {
 }
 
 export async function getItems(): Promise<Item[]> {
-  const { data, error } = await supabase.from('items').select('*').order('created_at');
+  const { data, error } = await (supabase as any).from('items').select('*').order('created_at');
   if (error) throw error;
   return (data || []).map(mapItem);
 }
